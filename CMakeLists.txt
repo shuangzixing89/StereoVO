@@ -25,5 +25,5 @@ target_link_libraries(${PROJECT_NAME}
         ${OpenCV_LIBS}
         )
 
-add_executable(Stereo_VO main.cpp)
-target_link_libraries(Stereo_VO ${PROJECT_NAME})
+add_executable(KITTI ./demo/KITTI.cc)
+target_link_libraries(KITTI ${PROJECT_NAME})

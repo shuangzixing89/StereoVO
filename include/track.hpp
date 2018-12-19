@@ -9,7 +9,6 @@
 
 namespace StereoVO
 {
-
 }
 
 #endif //STEREOVO_TRACK_HPP
