@@ -44,7 +44,7 @@ namespace StereoVO
     Point3d Frame::getCamCenter() const
     {
         //TODO Point3d(```)
-        return Point3d();
+        return Point3d( -T_c_w_.at<double>(0,3),  -T_c_w_.at<double>(1,3), -T_c_w_.at<double>(2,3));
     }
 
     bool Frame::isInFrame ( const Point3d& pt_world )
@@ -54,7 +54,7 @@ namespace StereoVO
         if ( p_cam.z<0 ) return false;
         Point2d pixel = camera_->world2pixel( pt_world, T_c_w_ );
 
-        // cout<<"P_pixel = "<<pixel.transpose()<<endl<<endl;
+//         cout<<"P_pixel = "<<pixel <<endl<<endl;
         return pixel.x>0 && pixel.y>0
                && pixel.x<left_.cols
                && pixel.y<left_.rows;

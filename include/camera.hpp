@@ -15,7 +15,7 @@ namespace StereoVO
     {
     public:
         typedef std::shared_ptr<Camera> Ptr;
-        float   fx_, fy_, cx_, cy_, depth_scale_, ThDepth_, bf_;
+        float   fx_, fy_, cx_, cy_, depth_scale_, ThDepth_, b_, bf_;
 
         Camera();
         Camera ( float fx, float fy, float cx, float cy, float depth_scale=0 ) :

@@ -47,16 +47,19 @@ int main(int argc, char **argv)
     cout << "Start processing sequence ..." << endl;
     cout << "Images in the sequence: " << nImages << endl << endl;
 
+    char text[100];
+    Mat traj = Mat::zeros(600, 600, CV_8UC3);
+
     // Main loop
     Mat imLeft, imRight;
-    for(int ni=0; ni<nImages; ni++)
+    for(int ni=10; ni<nImages; ni++)
     {
         // Read left and right images from file
         imLeft = cv::imread(vstrImageLeft[ni],CV_LOAD_IMAGE_UNCHANGED);
         imRight = cv::imread(vstrImageRight[ni],CV_LOAD_IMAGE_UNCHANGED);
         double tframe = vTimestamps[ni];
 
-        if(imLeft.empty())
+        if(imLeft.empty() || imRight.empty())
         {
             cerr << endl << "Failed to load image at: "
                  << string(vstrImageLeft[ni]) << endl;
@@ -67,7 +70,7 @@ int main(int argc, char **argv)
         StereoVO::Frame::Ptr pFrame = StereoVO::Frame::createFrame();
         pFrame->camera_ = camera;
         pFrame->left_ = imLeft;
-        pFrame->right_ = imLeft;
+        pFrame->right_ = imRight;
         pFrame->time_stamp_ = tframe;
 
 
@@ -76,9 +79,10 @@ int main(int argc, char **argv)
 
 //         Pass the images to the SLAM system
 //        SLAM.TrackStereo(imLeft,imRight,tframe);
+        track->addFrame(pFrame);
         cv::imshow("Image", imLeft);
 //        cv::waitKey( 30 );
-        if(cv::waitKey( 30 ) == 27) break;
+        if(cv::waitKey( 1 ) == 27) break;
 
         std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
 
@@ -95,6 +99,15 @@ int main(int argc, char **argv)
 
         if(ttrack<T)
             usleep((T-ttrack)*1e6);
+
+        int x = (int)(track->curr_->T_c_w_.at<double>(2,3))*10 + 300,
+                y = (int)(track->curr_->T_c_w_.at<double>(0,3))*10 + 100;
+        cv::circle(traj, cv::Point(x,y), 1, CV_RGB(255,0,0), 2 );
+        cv::rectangle(traj, cv::Point(10,30), cv::Point(550,50), CV_RGB(0,0,0), CV_FILLED);
+        sprintf(text, "Coordinates: x = %02fm y = %02fm z = %02fm",track->curr_->T_c_w_.at<double>(0,3), track->curr_->T_c_w_.at<double>(1,3), track->curr_->T_c_w_.at<double>(2,3));
+        cv::putText(traj, text, cv::Point(10,50), 1, 1, cv::Scalar::all(255));
+        cv::imshow("traj", traj );
+
     }
 
     return 0;

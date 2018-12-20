@@ -28,8 +28,13 @@ namespace StereoVO
         Frame::Ptr  curr_;      // current frame
 
         cv::Ptr<cv::ORB> orb_;  // orb detector and computer
+        cv::Ptr<cv::FeatureDetector> detector_;
+        cv::Ptr<cv::DescriptorExtractor> descriptor_;
+        cv::Ptr<cv::DescriptorMatcher> matcher_  ;
         vector<cv::KeyPoint>    keypoints_curr_left_, keypoints_curr_right_;    // keypoints in current frame
         Mat                     descriptors_curr_left_, descriptors_curr_right_;  // descriptor in current frame
+        vector <vector<cv::DMatch>> matches_curr_;
+        vector < cv::DMatch > matches_curr_good_;
 
         cv::FlannBasedMatcher   matcher_flann_;     // flann matcher
         vector<MapPoint::Ptr>   match_3dpts_;       // matched 3d points
@@ -50,6 +55,12 @@ namespace StereoVO
         double key_frame_min_trans; // minimal translation of two key-frames
         double  map_point_erase_ratio_; // remove map point ratio
 
+
+        // Corresponding stereo coordinate and depth for each keypoint.
+        // "Monocular" keypoints have a negative value.
+        std::vector<float> mvuRight;
+        std::vector<float> mvDepth;
+
     public: // functions
         Track();
         ~Track();
@@ -60,9 +71,15 @@ namespace StereoVO
         // inner operation
         void extractKeyPoints();
         void computeDescriptors();
+        void matchCurr();
         void featureMatching();
         void poseEstimationPnP();
         void optimizeMap();
+        void ComputeStereoMatches();
+        int  DescriptorDistance(const cv::Mat &a, const cv::Mat &b);
+
+        double findDepth ();
+        double my_nom(Mat);
 
         void addKeyFrame();
         void addMapPoints();
@@ -71,7 +88,6 @@ namespace StereoVO
 
         double getViewAngle( Frame::Ptr frame, MapPoint::Ptr point );
 
-    };
     };
 }
 
