@@ -5,14 +5,16 @@ set(CMAKE_CXX_STANDARD 11)
 
 # OpenCV
 find_package( OpenCV 3.1 REQUIRED )
-include_directories( ${OpenCV_INCLUDE_DIRS} )
 # Ceres
 find_package(Ceres REQUIRED)
-include_directories( ${CERES_INCLUDE_DIRS} )
+
 
 include_directories(
-        ./include
+        ${PROJECT_SOURCE_DIR}/include
+        ${OpenCV_INCLUDE_DIRS}
+        ${CERES_INCLUDE_DIRS}
 )
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib)
 add_library(${PROJECT_NAME} SHARED
         ./src/frame.cc
         ./src/track.cc
@@ -23,7 +25,9 @@ add_library(${PROJECT_NAME} SHARED
         )
 target_link_libraries(${PROJECT_NAME}
         ${OpenCV_LIBS}
+        ${CERES_LIBRARIES}
         )
 
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
 add_executable(KITTI ./demo/KITTI.cc)
 target_link_libraries(KITTI ${PROJECT_NAME})

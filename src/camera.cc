@@ -6,15 +6,26 @@
 
 namespace StereoVO
 {
-    Camera::Camera()
-    {
-        fx_ = Config::get<float>("camera.fx");
-        fy_ = Config::get<float>("camera.fy");
-        cx_ = Config::get<float>("camera.cx");
-        cy_ = Config::get<float>("camera.cy");
-        depth_scale_ = Config::get<float>("camera.depth_scale");
-    }
+    Camera::Camera() {
+        fx_ = Config::get<float>("Camera.fx");
+        fy_ = Config::get<float>("Camera.fy");
+        cx_ = Config::get<float>("Camera.cx");
+        cy_ = Config::get<float>("Camera.cy");
 
+        //TODO don not know
+        bf_ = Config::get<float>("Camera.bf");
+        ThDepth_ = bf_ * Config::get<float>("ThDepth") / fx_;
+
+//        depth_scale_ = Config::get<float>("camera.depth_scale");
+
+        cout << endl << "Camera Parameters: " << endl;
+        cout << "- fx: " << fx_ << endl;
+        cout << "- fy: " << fy_ << endl;
+        cout << "- cx: " << cx_ << endl;
+        cout << "- cy: " << cy_ << endl;
+
+        cout << endl << "Depth Threshold (Close/Far Points): " << ThDepth_ << endl;
+    }
     Point3d Camera::world2camera( const Point3d& pt_world, Mat T_c_w_ )
     {
         Mat R = T_c_w_.colRange(0,3).colRange(0,3),
