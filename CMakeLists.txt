@@ -8,11 +8,13 @@ find_package( OpenCV 3.1 REQUIRED )
 # Ceres
 find_package(Ceres REQUIRED)
 
+#find_package(Pangolin REQUIRED)
 
 include_directories(
         ${PROJECT_SOURCE_DIR}/include
         ${OpenCV_INCLUDE_DIRS}
         ${CERES_INCLUDE_DIRS}
+#        ${Pangolin_INCLUDE_DIRS}
 )
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib)
 add_library(${PROJECT_NAME} SHARED
@@ -26,6 +28,7 @@ add_library(${PROJECT_NAME} SHARED
 target_link_libraries(${PROJECT_NAME}
         ${OpenCV_LIBS}
         ${CERES_LIBRARIES}
+#        ${Pangolin_LIBRARIES}
         )
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)

@@ -46,9 +46,12 @@ namespace StereoVO
             case INITIALIZING:
             {
                 state_ = OK;
-                Mat R = Mat::eye(3,3,CV_64F),t = Mat::zeros(3,1,CV_64F);
-                cv::hconcat(R,t,frame->T_c_w_);
+                // TODO find curr_->frame->T_c_w_ / ref_->frame->T_c_w_ / T_c_w_estimated_ 地址相同
                 curr_ = ref_ = frame;
+                Mat R = Mat::eye(3,3,CV_64F),t = Mat::zeros(3,1,CV_64F);
+                cv::hconcat(R,t,curr_->T_c_w_);
+                Mat R2 = Mat::eye(3,3,CV_64F),t2 = Mat::zeros(3,1,CV_64F);
+                cv::hconcat(R2,t2,ref_->T_c_w_);
                 // extract features from first frame and add them into map
                 extractKeyPoints();
                 computeDescriptors();
@@ -67,6 +70,10 @@ namespace StereoVO
 //                ComputeStereoMatches();
                 featureMatching();
                 poseEstimationPnP();
+
+                std::cout << curr_->T_c_w_ << std::endl;
+                std::cout << ref_->T_c_w_ << std::endl;
+                std::cout << T_c_w_estimated_ << std::endl;
                 if ( checkEstimatedPose() == true ) // a good estimation
                 {
                     curr_->T_c_w_ = T_c_w_estimated_;
