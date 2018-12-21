@@ -53,7 +53,6 @@ namespace StereoVO
                 // extract features from first frame and add them into map
                 extractKeyPoints();
                 computeDescriptors();
-//                matchCurr();
                 ComputeStereoMatches();
                 addKeyFrame();      // the first frame is a key-frame
                 break;
@@ -70,7 +69,7 @@ namespace StereoVO
                 if ( checkEstimatedPose() == true ) // a good estimation
                 {
                     curr_->T_c_w_ = T_c_w_estimated_;
-//                    optimizeMap();
+                    optimizeMap();
                     num_lost_ = 0;
                     if ( checkKeyFrame() == true ) // is a key-frame
                     {
@@ -269,7 +268,7 @@ namespace StereoVO
 //                 std::cout << std::endl;
 
             double perfect = m[0].distance / m[1].distance;
-            if(perfect < 0.45 && m[0].distance < 35)
+            if(perfect < 0.6 && m[0].distance < 40)
             {
                 matches_curr_good_.push_back(m[0]);
 //                vIniMatches_.push_back(m[0].trainIdx);
@@ -287,7 +286,7 @@ namespace StereoVO
 //        drawMatches ( curr_->left_, keypoints_curr_left_, curr_->right_ ,keypoints_curr_right_, matches_curr_, img_match );
         drawMatches ( curr_->left_, keypoints_curr_left_, curr_->right_ ,keypoints_curr_right_, matches_curr_good_, img_goodmatch );
 //        cv::imshow ( "all", img_match );
-        cv::resize(img_goodmatch, img_goodmatch, cv::Size(1600,600));
+        cv::resize(img_goodmatch, img_goodmatch, cv::Size(1000,400));
         cv::imshow ( "some", img_goodmatch );
 
     }
@@ -478,7 +477,7 @@ namespace StereoVO
         Mat R_r_c, t_r_c, T_r_c, r_r_c, d;
 
         R_r_c = R_c_w * R_c_w_e.inv();
-        t_r_c = -R_c_w * t_c_w_e + t_c_w;
+        t_r_c = -R_c_w * R_c_w_e.inv()* t_c_w_e + t_c_w;
         cv::hconcat(R_r_c,t_r_c,T_r_c);
 
         cv::Rodrigues(R_r_c, r_r_c);
@@ -486,7 +485,7 @@ namespace StereoVO
 
         double d_n = my_nom(d);
 
-        if ( d_n > 0.5 )
+        if ( d_n > 5 )
         {
             cout<<"reject because motion is too large: "<<d_n <<endl;
             return false;
@@ -504,7 +503,7 @@ namespace StereoVO
         Mat R_r_c, t_r_c, T_r_c, r_r_c, d;
 
         R_r_c = R_c_w * R_c_w_e.inv();
-        t_r_c = -R_c_w * t_c_w_e + t_c_w;
+        t_r_c = -R_c_w * R_c_w_e.inv() * t_c_w_e + t_c_w;
         cv::hconcat(R_r_c,t_r_c,T_r_c);
 
         cv::Rodrigues(R_r_c, r_r_c);

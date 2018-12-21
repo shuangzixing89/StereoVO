@@ -16,7 +16,7 @@
 #include "common.hpp"
 #include "unistd.h"
 
-const string PathToSequence = "/Users/lixin/Documents/KITTI/data_odometry/dataset/sequences/01";
+const string PathToSequence = "/Users/lixin/Documents/KITTI/data_odometry/dataset/sequences/00";
 const string ParameterFile = "/Users/lixin/Documents/KITTI/KITTI00-02.yaml";
 
 void LoadImages(const string &strPathToSequence, vector<string> &vstrImageLeft,
@@ -52,7 +52,7 @@ int main(int argc, char **argv)
 
     // Main loop
     Mat imLeft, imRight;
-    for(int ni=10; ni<nImages; ni++)
+    for(int ni=0; ni<nImages; ni++)
     {
         // Read left and right images from file
         imLeft = cv::imread(vstrImageLeft[ni],CV_LOAD_IMAGE_UNCHANGED);
