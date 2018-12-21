@@ -34,3 +34,6 @@ target_link_libraries(${PROJECT_NAME}
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
 add_executable(KITTI ./demo/KITTI.cc)
 target_link_libraries(KITTI ${PROJECT_NAME})
+
+add_executable(MINT ./demo/MINT.cc)
+target_link_libraries(MINT ${PROJECT_NAME})

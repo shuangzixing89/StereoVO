@@ -1,5 +1,5 @@
 //
-// Created by lixin on 18-12-19.
+// Created by lixin on 18-12-21.
 //
 #include <fstream>
 #include<iomanip>
@@ -24,8 +24,7 @@
 const string PathToSequence = "/home/lixin/Documents/KITTI/data_odometry/dataset/sequences/00";
 const string ParameterFile = "/home/lixin/Documents/KITTI/KITTI00-02.yaml";
 
-void LoadImages(const string &strPathToSequence, vector<string> &vstrImageLeft,
-                vector<string> &vstrImageRight, vector<double> &vTimestamps);
+
 void DrawTrajectory(vector<vector<double>>  map_points);
 
 int main(int argc, char **argv)
@@ -58,17 +57,20 @@ int main(int argc, char **argv)
 
     // Main loop
     Mat imLeft, imRight;
+    std::chrono::steady_clock::time_point start,end;
+    start = std::chrono::steady_clock::now();
     for(int ni=0; ni<nImages; ni++)
     {
         // Read left and right images from file
         imLeft = cv::imread(vstrImageLeft[ni],CV_LOAD_IMAGE_UNCHANGED);
         imRight = cv::imread(vstrImageRight[ni],CV_LOAD_IMAGE_UNCHANGED);
-        double tframe = vTimestamps[ni];
+
+        end = std::chrono::steady_clock::now();
+        double tframe = (end - start)/1000;
 
         if(imLeft.empty() || imRight.empty())
         {
-            cerr << endl << "Failed to load image at: "
-                 << string(vstrImageLeft[ni]) << endl;
+            cerr << endl << "Failed to load image"
             continue;
             //return 1;
         }
@@ -82,31 +84,14 @@ int main(int argc, char **argv)
         cv::hconcat(R,t,pFrame->T_c_w_);
 
 
-
-        std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
-
-//         Pass the images to the SLAM system
-//        SLAM.TrackStereo(imLeft,imRight,tframe);
         track->addFrame(pFrame);
         cv::imshow("Image", imLeft);
 //        cv::waitKey( 30 );
+
+
         if(cv::waitKey( 1 ) == 27) break;
 
-        std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
 
-        double ttrack= std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
-
-        vTimesTrack[ni]=ttrack;
-
-        // Wait to load the next frame
-        double T=0;
-        if(ni<nImages-1)
-            T = vTimestamps[ni+1]-tframe;
-        else if(ni>0)
-            T = tframe-vTimestamps[ni-1];
-
-        if(ttrack<T)
-            usleep((T-ttrack)*1e6);
 
         int x = (int)(track->curr_->T_c_w_.at<double>(0,3)) + 300,
                 y = -(int)(track->curr_->T_c_w_.at<double>(2,3)) + 100;
@@ -115,23 +100,6 @@ int main(int argc, char **argv)
         sprintf(text, "Coordinates: x = %02fm y = %02fm z = %02fm",track->curr_->T_c_w_.at<double>(0,3), track->curr_->T_c_w_.at<double>(1,3), track->curr_->T_c_w_.at<double>(2,3));
         cv::putText(traj, text, cv::Point(10,50), 1, 1, cv::Scalar::all(255));
         cv::imshow("traj", traj );
-
-        /*if(ni == 10)
-        {
-            vector<vector<double>> map_points;
-
-            for ( auto iter = track->map_->map_points_.begin(); iter != track->map_->map_points_.end(); iter++)
-            {
-                vector<double> map_point;
-                map_point.push_back(iter->second->pos_.x);
-                map_point.push_back(iter->second->pos_.y);
-                map_point.push_back(iter->second->pos_.z);
-//                std::cout << map_point[0] << std::endl;
-                map_points.push_back(map_point);
-            }
-            DrawTrajectory(map_points);
-        }*/
-
     }
 
     return 0;
