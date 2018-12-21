@@ -21,8 +21,8 @@
 #include "map.hpp"
 #include "mappoint.hpp"
 
-const string PathToSequence = "/home/lixin/Documents/KITTI/data_odometry/dataset/sequences/00";
-const string ParameterFile = "/home/lixin/Documents/KITTI/KITTI00-02.yaml";
+const string PathToSequence = "/Users/lixin/Documents/KITTI/data_odometry/dataset/sequences/06";
+const string ParameterFile = "/Users/lixin/Documents/KITTI/KITTI00-02.yaml";
 
 void LoadImages(const string &strPathToSequence, vector<string> &vstrImageLeft,
                 vector<string> &vstrImageRight, vector<double> &vTimestamps);
@@ -83,7 +83,7 @@ int main(int argc, char **argv)
 
 
 
-        std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
+//        std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
 
 //         Pass the images to the SLAM system
 //        SLAM.TrackStereo(imLeft,imRight,tframe);
@@ -92,21 +92,21 @@ int main(int argc, char **argv)
 //        cv::waitKey( 30 );
         if(cv::waitKey( 1 ) == 27) break;
 
-        std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
+//        std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
 
-        double ttrack= std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
+//        double ttrack= std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
 
-        vTimesTrack[ni]=ttrack;
+//        vTimesTrack[ni]=ttrack;
 
         // Wait to load the next frame
-        double T=0;
-        if(ni<nImages-1)
-            T = vTimestamps[ni+1]-tframe;
-        else if(ni>0)
-            T = tframe-vTimestamps[ni-1];
-
-        if(ttrack<T)
-            usleep((T-ttrack)*1e6);
+//        double T=0;
+//        if(ni<nImages-1)
+//            T = vTimestamps[ni+1]-tframe;
+//        else if(ni>0)
+//            T = tframe-vTimestamps[ni-1];
+//
+//        if(ttrack<T)
+//            usleep((T-ttrack)*1e6);
 
         int x = (int)(track->curr_->T_c_w_.at<double>(0,3)) + 300,
                 y = -(int)(track->curr_->T_c_w_.at<double>(2,3)) + 100;
