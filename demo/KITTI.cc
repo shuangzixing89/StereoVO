@@ -78,6 +78,8 @@ int main(int argc, char **argv)
         pFrame->left_ = imLeft;
         pFrame->right_ = imRight;
         pFrame->time_stamp_ = tframe;
+        Mat R = Mat::eye(3,3,CV_64F),t = Mat::zeros(3,1,CV_64F);
+        cv::hconcat(R,t,pFrame->T_c_w_);
 
 
 
@@ -106,8 +108,8 @@ int main(int argc, char **argv)
         if(ttrack<T)
             usleep((T-ttrack)*1e6);
 
-        int x = (int)(track->curr_->T_c_w_.at<double>(2,3)) + 300,
-                y = (int)(track->curr_->T_c_w_.at<double>(0,3)) + 100;
+        int x = (int)(track->curr_->T_c_w_.at<double>(0,3)) + 300,
+                y = (int)(track->curr_->T_c_w_.at<double>(2,3)) + 100;
         cv::circle(traj, cv::Point(x,y), 1, CV_RGB(255,0,0), 2 );
         cv::rectangle(traj, cv::Point(10,30), cv::Point(550,50), CV_RGB(0,0,0), CV_FILLED);
         sprintf(text, "Coordinates: x = %02fm y = %02fm z = %02fm",track->curr_->T_c_w_.at<double>(0,3), track->curr_->T_c_w_.at<double>(1,3), track->curr_->T_c_w_.at<double>(2,3));

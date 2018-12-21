@@ -30,6 +30,8 @@ namespace StereoVO
         detector_ = cv::ORB::create(num_of_features_,scale_factor_, level_pyramid_);
         descriptor_ = cv::ORB::create();
         matcher_ = cv::DescriptorMatcher::create ( "BruteForce-Hamming" );
+        Mat R = Mat::eye(3,3,CV_64F),t = Mat::zeros(3,1,CV_64F);
+        cv::hconcat(R,t,T_c_w_estimated_);
     }
 
     Track::~Track()
@@ -48,10 +50,6 @@ namespace StereoVO
                 state_ = OK;
                 // TODO find curr_->frame->T_c_w_ / ref_->frame->T_c_w_ / T_c_w_estimated_ 地址相同
                 curr_ = ref_ = frame;
-                Mat R = Mat::eye(3,3,CV_64F),t = Mat::zeros(3,1,CV_64F);
-                cv::hconcat(R,t,curr_->T_c_w_);
-                Mat R2 = Mat::eye(3,3,CV_64F),t2 = Mat::zeros(3,1,CV_64F);
-                cv::hconcat(R2,t2,ref_->T_c_w_);
                 // extract features from first frame and add them into map
                 extractKeyPoints();
                 computeDescriptors();
@@ -63,20 +61,16 @@ namespace StereoVO
             case OK:
             {
                 curr_ = frame;
-                curr_->T_c_w_ = ref_->T_c_w_;
+                curr_->T_c_w_ = ref_->T_c_w_.clone() ;
                 extractKeyPoints();
                 computeDescriptors();
                 matchCurr();
 //                ComputeStereoMatches();
                 featureMatching();
                 poseEstimationPnP();
-
-                std::cout << curr_->T_c_w_ << std::endl;
-                std::cout << ref_->T_c_w_ << std::endl;
-                std::cout << T_c_w_estimated_ << std::endl;
                 if ( checkEstimatedPose() == true ) // a good estimation
                 {
-                    curr_->T_c_w_ = T_c_w_estimated_;
+                    curr_->T_c_w_ = T_c_w_estimated_.clone();
                     optimizeMap();
                     num_lost_ = 0;
                     if ( checkKeyFrame() == true ) // is a key-frame
