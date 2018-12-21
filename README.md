@@ -1,3 +1,3 @@
 # StereoVO
 a small Stereo VO
-![image](https://github.com/robotlee1997/StereoVO/tree/master/demo/KITTI.png)
+![image](https://github.com/robotlee1997/StereoVO/blob/master/demo/KITTI.png)
