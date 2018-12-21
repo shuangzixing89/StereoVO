@@ -21,8 +21,8 @@
 #include "map.hpp"
 #include "mappoint.hpp"
 
-const string PathToSequence = "/home/lixin/Documents/KITTI/data_odometry/dataset/sequences/00";
-const string ParameterFile = "/home/lixin/Documents/KITTI/KITTI00-02.yaml";
+const string PathToSequence = "/Users/lixin/Documents/KITTI/data_odometry/dataset/sequences/15";
+const string ParameterFile = "/Users/lixin/Documents/KITTI/KITTI00-02.yaml";
 
 void LoadImages(const string &strPathToSequence, vector<string> &vstrImageLeft,
                 vector<string> &vstrImageRight, vector<double> &vTimestamps);
@@ -54,7 +54,7 @@ int main(int argc, char **argv)
     cout << "Images in the sequence: " << nImages << endl << endl;
 
     char text[100];
-    Mat traj = Mat::zeros(600, 600, CV_8UC3);
+    Mat traj = Mat::zeros(1000, 600, CV_8UC3);
 
     // Main loop
     Mat imLeft, imRight;
@@ -109,7 +109,7 @@ int main(int argc, char **argv)
             usleep((T-ttrack)*1e6);
 
         int x = (int)(track->curr_->T_c_w_.at<double>(0,3)) + 300,
-                y = (int)(track->curr_->T_c_w_.at<double>(2,3)) + 100;
+                y = -(int)(track->curr_->T_c_w_.at<double>(2,3)) + 100;
         cv::circle(traj, cv::Point(x,y), 1, CV_RGB(255,0,0), 2 );
         cv::rectangle(traj, cv::Point(10,30), cv::Point(550,50), CV_RGB(0,0,0), CV_FILLED);
         sprintf(text, "Coordinates: x = %02fm y = %02fm z = %02fm",track->curr_->T_c_w_.at<double>(0,3), track->curr_->T_c_w_.at<double>(1,3), track->curr_->T_c_w_.at<double>(2,3));

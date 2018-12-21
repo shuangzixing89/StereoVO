@@ -73,7 +73,7 @@ namespace StereoVO
         void computeDescriptors();
         void matchCurr();
         void featureMatching();
-        void poseEstimationPnP();
+        bool poseEstimationPnP();
         void optimizeMap();
         void ComputeStereoMatches();
         int  DescriptorDistance(const cv::Mat &a, const cv::Mat &b);

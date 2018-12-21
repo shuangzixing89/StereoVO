@@ -9,11 +9,56 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/calib3d/calib3d.hpp>
 #include <algorithm>
+#include <ceres/ceres.h>
+#include <ceres/rotation.h>
 //#include <boost/timer.hpp>
 
 
 namespace StereoVO
 {
+    struct MinReprojectionError
+    {
+        MinReprojectionError( Point3d p_w, Point2d p_p, Mat K_cam ): point_3d(p_w), point_2d(p_p), K(K_cam){}
+
+        template <typename  T>
+        bool operator()(
+                const T* pose,
+                T* residuals
+                ) const{
+            T p_world[3];
+            p_world[0] = T(point_3d.x);
+            p_world[1] = T(point_3d.y);
+            p_world[2] = T(point_3d.z);
+
+            T p_cam[3];
+            ceres::AngleAxisRotatePoint(pose, p_world, p_cam);
+            p_cam[0] += pose[3];
+            p_cam[1] += pose[4];
+            p_cam[2] += pose[5];
+
+            T predicted_x = T( K.at<double>(0,0) ) * p_cam[0]/p_cam[2] + T(K.at<double>(0,2));
+            T predicted_y = T( K.at<double>(1,1) ) * p_cam[1]/p_cam[2] + T(K.at<double>(1,2));
+
+            T observed_x = T(point_2d.x);
+            T observed_y = T(point_2d.y);
+
+            residuals[0] = predicted_x - observed_x;
+            residuals[1] = predicted_y - observed_y;
+
+            return true;
+        }
+
+        static ceres::CostFunction* Create(const Point3d point_world,
+                const Point2d Point_pixel, const Mat K_cam){
+            return (new ceres::AutoDiffCostFunction< MinReprojectionError, 2, 6 >(new MinReprojectionError(point_world, Point_pixel, K_cam)));
+        }
+
+        Point3d point_3d;
+        Point2d point_2d;
+        Mat K;
+    };
+
+
     Track::Track() :
             state_ ( INITIALIZING ), ref_ ( nullptr ), curr_ ( nullptr ), map_ ( new Map ), num_lost_ ( 0 ), num_inliers_ ( 0 ), matcher_flann_ ( new cv::flann::LshIndexParams ( 5,10,2 ) )
     {
@@ -67,24 +112,36 @@ namespace StereoVO
                 matchCurr();
 //                ComputeStereoMatches();
                 featureMatching();
-                poseEstimationPnP();
-                if ( checkEstimatedPose() == true ) // a good estimation
+                if( poseEstimationPnP() == true)
                 {
-                    curr_->T_c_w_ = T_c_w_estimated_.clone();
-                    optimizeMap();
-                    num_lost_ = 0;
-                    if ( checkKeyFrame() == true ) // is a key-frame
+                    if ( checkEstimatedPose() == true ) // a good estimation
                     {
-                        addKeyFrame();
+                        curr_->T_c_w_ = T_c_w_estimated_.clone();
+                        optimizeMap();
+                        num_lost_ = 0;
+                        if ( checkKeyFrame() == true ) // is a key-frame
+                        {
+                            addKeyFrame();
+                        }
+                        else
+                        {
+                            std::cout << "checkKeyFrame false\n";
+                        }
                     }
-                    else
+                    else // bad estimation due to various reasons
                     {
-                        std::cout << "checkKeyFrame false\n";
+                        std::cout << "checkEstimatedPose false\n";
+                        num_lost_++;
+                        if ( num_lost_ > max_num_lost_ )
+                        {
+                            state_ = LOST;
+                        }
+                        return false;
                     }
                 }
-                else // bad estimation due to various reasons
+                else
                 {
-                    std::cout << "checkEstimatedPose false\n";
+                    std::cout << "poseEstimationPnP false\n";
                     num_lost_++;
                     if ( num_lost_ > max_num_lost_ )
                     {
@@ -507,7 +564,7 @@ namespace StereoVO
         ;
     }
 
-    void Track::poseEstimationPnP()
+    bool Track::poseEstimationPnP()
     {
         // construct the 3d 2d observations
         vector<cv::Point3f> pts3d;
@@ -528,12 +585,42 @@ namespace StereoVO
                 0,0,1
         );
         Mat rvec, tvec, inliers, R;
+        if(pts3d.size() < 10)
+            return false;
         cv::solvePnPRansac ( pts3d, pts2d, K, Mat(), rvec, tvec, false, 100, 4.0, 0.99, inliers );
         num_inliers_ = inliers.rows;
         cv::Rodrigues(rvec, R);
+        double pose[6] = { rvec.at<double>(0), rvec.at<double>(1), rvec.at<double>(2), tvec.at<double>(0), tvec.at<double>(1), tvec.at<double>(2)};
         cout<<"pnp inliers: "<<num_inliers_<<endl;
         cv::hconcat(R,tvec,T_c_w_estimated_);
+        cout<<"T_c_w_estimated_(before BA): "<<endl<<T_c_w_estimated_<<endl;
 
+        ceres::Problem problem;
+        for(int i=0; i<inliers.rows; i++ )
+        {
+            int index = inliers.at<int> ( i,0 );
+            ceres::CostFunction* cost_function = MinReprojectionError::Create( pts3d[index], pts2d[index], K );
+            problem.AddResidualBlock(cost_function, NULL, pose);
+        }
+        ceres::Solver::Options options;
+        options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
+        options.minimizer_progress_to_stdout = true;
+        options.max_num_iterations = 30;
+        ceres::Solver::Summary summary;
+        ceres::Solve(options, &problem, &summary);
+
+        rvec.at<double>(0) = pose[0];
+        rvec.at<double>(1) = pose[1];
+        rvec.at<double>(2) = pose[2];
+        tvec.at<double>(0) = pose[3];
+        tvec.at<double>(1) = pose[4];
+        tvec.at<double>(2) = pose[5];
+
+        cv::Rodrigues(rvec, R);
+        cv::hconcat(R,tvec,T_c_w_estimated_);
+        cout<<"T_c_w_estimated_: "<<endl<<T_c_w_estimated_<<endl;
+
+        return true;
         /*// using bundle adjustment to optimize the pose
         typedef g2o::BlockSolver<g2o::BlockSolverTraits<6,2>> Block;
         Block::LinearSolverType* linearSolver = new g2o::LinearSolverDense<Block::PoseMatrixType>();
@@ -574,7 +661,7 @@ namespace StereoVO
 //                pose->estimate().translation()
 //        );
 
-        cout<<"T_c_w_estimated_: "<<endl<<T_c_w_estimated_<<endl;
+
     }
 
     bool Track::checkEstimatedPose()
@@ -676,9 +763,9 @@ namespace StereoVO
             iter++;
         }
 
-        if ( match_2dkp_index_.size() < 1000 )
+        if ( match_2dkp_index_.size() < 500 )
             addMapPoints();
-        if ( map_->map_points_.size() > 10000 )
+        if ( map_->map_points_.size() > 5000 )
         {
             // TODO map is too large, remove some one
             map_point_erase_ratio_ += 0.05;
