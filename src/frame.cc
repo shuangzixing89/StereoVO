@@ -43,8 +43,10 @@ namespace StereoVO
 
     Point3d Frame::getCamCenter() const
     {
-        //TODO Point3d(```)
-        return Point3d( -T_c_w_.at<double>(0,3),  -T_c_w_.at<double>(1,3), -T_c_w_.at<double>(2,3));
+        Mat R_c_w = T_c_w_.colRange(0,3).rowRange(0,3),
+        t_c_w = T_c_w_.colRange(3,4).rowRange(0,3);
+        Mat ret = -R_c_w.inv()*t_c_w;
+        return Point3d( ret.at<double>(0),  ret.at<double>(1), ret.at<double>(2));
     }
 
     bool Frame::isInFrame ( const Point3d& pt_world )

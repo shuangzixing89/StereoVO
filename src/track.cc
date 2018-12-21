@@ -17,7 +17,7 @@ namespace StereoVO
     Track::Track() :
             state_ ( INITIALIZING ), ref_ ( nullptr ), curr_ ( nullptr ), map_ ( new Map ), num_lost_ ( 0 ), num_inliers_ ( 0 ), matcher_flann_ ( new cv::flann::LshIndexParams ( 5,10,2 ) )
     {
-        num_of_features_    = Config::get<int> ( "ORBextractor.nFeatures" );
+        num_of_features_    = Config::get<int> ( "number_of_features" );
         scale_factor_       = Config::get<double> ( "scale_factor" );
         level_pyramid_      = Config::get<int> ( "level_pyramid" );
         match_ratio_        = Config::get<float> ( "match_ratio" );
@@ -27,7 +27,7 @@ namespace StereoVO
         key_frame_min_trans = Config::get<double> ( "keyframe_translation" );
         map_point_erase_ratio_ = Config::get<double> ( "map_point_erase_ratio" );
         orb_ = cv::ORB::create ( num_of_features_, scale_factor_, level_pyramid_ );
-        detector_ = cv::ORB::create(num_of_features_);
+        detector_ = cv::ORB::create(num_of_features_,scale_factor_, level_pyramid_);
         descriptor_ = cv::ORB::create();
         matcher_ = cv::DescriptorMatcher::create ( "BruteForce-Hamming" );
     }
@@ -48,12 +48,12 @@ namespace StereoVO
                 state_ = OK;
                 Mat R = Mat::eye(3,3,CV_64F),t = Mat::zeros(3,1,CV_64F);
                 cv::hconcat(R,t,frame->T_c_w_);
-                frame->T_c_w_;
                 curr_ = ref_ = frame;
                 // extract features from first frame and add them into map
                 extractKeyPoints();
                 computeDescriptors();
-                ComputeStereoMatches();
+                matchCurr();
+//                ComputeStereoMatches();
                 addKeyFrame();      // the first frame is a key-frame
                 break;
             }
@@ -63,7 +63,8 @@ namespace StereoVO
                 curr_->T_c_w_ = ref_->T_c_w_;
                 extractKeyPoints();
                 computeDescriptors();
-                ComputeStereoMatches();
+                matchCurr();
+//                ComputeStereoMatches();
                 featureMatching();
                 poseEstimationPnP();
                 if ( checkEstimatedPose() == true ) // a good estimation
@@ -75,9 +76,14 @@ namespace StereoVO
                     {
                         addKeyFrame();
                     }
+                    else
+                    {
+                        std::cout << "checkKeyFrame false\n";
+                    }
                 }
                 else // bad estimation due to various reasons
                 {
+                    std::cout << "checkEstimatedPose false\n";
                     num_lost_++;
                     if ( num_lost_ > max_num_lost_ )
                     {
@@ -103,7 +109,7 @@ namespace StereoVO
         keypoints_curr_left_.clear();
         detector_->detect ( curr_->left_, keypoints_curr_left_ );
         detector_->detect ( curr_->right_, keypoints_curr_right_ );
-        std::cout << "ORB num :" << keypoints_curr_left_.size() << std::endl;
+        std::cout << "ORB num :" << keypoints_curr_left_.size() + keypoints_curr_right_.size() << std::endl;
     }
 
     void Track::computeDescriptors()
@@ -248,17 +254,29 @@ namespace StereoVO
         Mat img_goodmatch;
         drawMatches ( curr_->left_, keypoints_curr_left_, curr_->right_ ,keypoints_curr_right_, matches_curr_good_, img_goodmatch );
         cv::resize(img_goodmatch, img_goodmatch, cv::Size(1000,400));
-        cv::imshow ( "some", img_goodmatch );
+        cv::imshow ( "strero matches: ", img_goodmatch );
+        cout<<"strero matches: "<<matches_curr_good_.size() <<endl;
 //        std::cout << num << "   all:  "  <<  mvuRight.size() << " ORB num " << N << std::endl;
     }
 
     void Track::matchCurr()
     {
+        int N = keypoints_curr_left_.size();
+        mvuRight = vector<float>(N,-1.0f);
+        mvDepth = vector<float>(N,-1.0f);
 //        matcher_flann_.match(descriptors_curr_left_, descriptors_curr_right_, matches_curr_);
 
         matcher_->knnMatch(descriptors_curr_left_, descriptors_curr_right_, matches_curr_, 2);
 
         // select the best matches
+
+
+        vector<pair<int, int> > vDistIdx;
+        vDistIdx.reserve(N);
+        const float minZ = curr_->camera_->b_;
+        const float minD = 0;
+        const float maxD = curr_->camera_->bf_ / minZ;
+        int iL = 0;
         for ( auto& m:matches_curr_ )
         {
 //                for(auto & n:m)
@@ -267,16 +285,77 @@ namespace StereoVO
 //                }
 //                 std::cout << std::endl;
 
+
             double perfect = m[0].distance / m[1].distance;
-            if(perfect < 0.6 && m[0].distance < 40)
+            if(perfect < 0.5 && m[0].distance < 30)
             {
+                float disparity =  keypoints_curr_left_[ m[0].queryIdx ].pt.x-
+                        keypoints_curr_right_[ m[0].trainIdx ].pt.x;
+                if(disparity>=minD && disparity<maxD)
+                {
+                    if(disparity<=0)
+                    {
+                        disparity=0.01;
+                        keypoints_curr_right_[ m[0].trainIdx ].pt.x = keypoints_curr_left_[ m[0].queryIdx ].pt.x-0.01;
+                    }
+                    mvDepth[iL]=curr_->camera_->bf_/disparity;
+                    mvuRight[iL] = keypoints_curr_right_[ m[0].trainIdx ].pt.x;
+                    vDistIdx.push_back(pair<int,int>(m[0].distance,iL));
+                }
+
                 matches_curr_good_.push_back(m[0]);
 //                vIniMatches_.push_back(m[0].trainIdx);
 //                     std::cout << m[0].trainIdx << std::endl;
             }
+            iL ++;
         }
 
-        std::cout << "match num :" << matches_curr_good_.size() << std::endl;
+        sort(vDistIdx.begin(),vDistIdx.end());
+        const float median = vDistIdx[vDistIdx.size()/2].first;
+        const float thDist = median;
+
+//        int num = 0;
+        for(int i=vDistIdx.size()-1;i>=0;i--)
+        {
+            if(vDistIdx[i].first<thDist)
+            {
+                break;
+            }
+            else
+            {
+//                num ++;
+                mvuRight[vDistIdx[i].second]=-1;
+                mvDepth[vDistIdx[i].second]=-1;
+            }
+        }
+//        for( auto &i:vDistIdx )
+//        {
+//            if(mvuRight[i.second] != -1)
+//            {
+//                cv::DMatch x;
+//                x.queryIdx = i.second;
+//                x.trainIdx = mvuRight[i.second];
+//                matches_curr_good_.push_back(x);
+//            }
+//        }
+
+
+//        float disparity = (uL-bestIdxR);
+//
+//        if(disparity>=minD && disparity<maxD)
+//        {
+//            if(disparity<=0)
+//            {
+//                disparity=0.01;
+//                bestIdxR = uL-0.01;
+//            }
+//            mvDepth[iL]=curr_->camera_->bf_/disparity;
+//            mvuRight[iL] = bestIdxR;
+//            vDistIdx.push_back(pair<int,int>(bestDist,iL));
+//        }
+
+
+        std::cout << "strero matches: " << matches_curr_good_.size() << std::endl;
 
 
 
@@ -287,13 +366,13 @@ namespace StereoVO
         drawMatches ( curr_->left_, keypoints_curr_left_, curr_->right_ ,keypoints_curr_right_, matches_curr_good_, img_goodmatch );
 //        cv::imshow ( "all", img_match );
         cv::resize(img_goodmatch, img_goodmatch, cv::Size(1000,400));
-        cv::imshow ( "some", img_goodmatch );
+        cv::imshow ( "strero matches: ", img_goodmatch );
 
     }
 
     void Track::featureMatching()
     {
-        vector<cv::DMatch> matches;
+        vector< vector<cv::DMatch>> matches;
         // select the candidates in map
         Mat desp_map;
         vector<MapPoint::Ptr> candidate;
@@ -310,27 +389,64 @@ namespace StereoVO
             }
         }
 
-        matcher_flann_.match ( desp_map, descriptors_curr_left_, matches );
-        // select the best matches
-        float min_dis = std::min_element (
-                matches.begin(), matches.end(),
-                [] ( const cv::DMatch& m1, const cv::DMatch& m2 )
-                {
-                    return m1.distance < m2.distance;
-                } )->distance;
+
+
+        matcher_->knnMatch(desp_map, descriptors_curr_left_, matches, 2);
 
         match_3dpts_.clear();
         match_2dkp_index_.clear();
-        for ( cv::DMatch& m : matches )
+        // select the best matches
+        vector<cv::DMatch> good_matchs;
+        for ( auto& m:matches )
         {
-            if ( m.distance < max<float> ( min_dis*match_ratio_, 50.0 ) )
+
+            double perfect = m[0].distance / m[1].distance;
+            if(perfect < 0.6 /*&& m[0].distance < 100*/)
             {
-                match_3dpts_.push_back( candidate[m.queryIdx] );
-                match_2dkp_index_.push_back( m.trainIdx );
+                good_matchs.push_back(m[0]);
+                match_3dpts_.push_back( candidate[m[0].queryIdx] );
+                match_2dkp_index_.push_back( m[0].trainIdx );
             }
         }
-        cout<<"desp_map: "<<desp_map.size()<<"\ndescriptors_curr_left_: "<<descriptors_curr_left_.size()<<endl;
-        cout<<"good matches: "<<match_3dpts_.size() <<endl;
+
+        vector<cv::KeyPoint>  cuur_key_;
+//        detector_->detect ( ref_->left_, cuur_key_ );
+        for( auto &c:candidate)
+        {
+            cv::KeyPoint key;
+            key.pt = curr_->camera_->world2pixel( c->pos_, curr_->T_c_w_ );
+            cuur_key_.push_back(key);
+        }
+
+
+        Mat match3d;
+        drawMatches ( ref_->left_, cuur_key_, curr_->left_ ,keypoints_curr_left_, good_matchs, match3d );
+        cv::resize(match3d, match3d, cv::Size(1000,400));
+        cv::imshow ( "match3d", match3d );
+
+
+
+//        matcher_flann_.match ( desp_map, descriptors_curr_left_, matches );
+//        // select the best matches
+//        float min_dis = std::min_element (
+//                matches.begin(), matches.end(),
+//                [] ( const cv::DMatch& m1, const cv::DMatch& m2 )
+//                {
+//                    return m1.distance < m2.distance;
+//                } )->distance;
+
+//        match_3dpts_.clear();
+//        match_2dkp_index_.clear();
+//        for ( cv::DMatch& m : matches )
+//        {
+//            if ( m.distance < max<float> ( min_dis*match_ratio_, 50.0 ) )
+//            {
+//                match_3dpts_.push_back( candidate[m.queryIdx] );
+//                match_2dkp_index_.push_back( m.trainIdx );
+//            }
+//        }
+        cout<<"3D pointd: "<<desp_map.size()<<"\n2D points: "<<descriptors_curr_left_.size()<<endl;
+        cout<<"3D-2D matches: "<<match_3dpts_.size() <<endl;
     }
 
 
@@ -348,7 +464,8 @@ namespace StereoVO
                 Point3d p_world = ref_->camera_->pixel2world (
                         Point2d( keypoints_curr_left_[i].pt.x , keypoints_curr_left_[i].pt.y ), curr_->T_c_w_, d
                 );
-                Point3d n = p_world - ref_->getCamCenter();
+                Point3d cam = ref_->getCamCenter();
+                Point3d n = p_world - cam;
                 double n_all = std::sqrt( n.x * n.x  + n.y * n.y + n.z * n.z );
                 n.x /= n_all;
                 n.y /= n_all;
@@ -485,7 +602,7 @@ namespace StereoVO
 
         double d_n = my_nom(d);
 
-        if ( d_n > 5 )
+        if ( d_n > 5.0 )
         {
             cout<<"reject because motion is too large: "<<d_n <<endl;
             return false;
@@ -510,7 +627,7 @@ namespace StereoVO
         cv::vconcat(r_r_c, t_r_c, d);
 
 
-        if ( norm(r_r_c) >key_frame_min_rot || norm(t_r_c) >key_frame_min_trans )
+        if ( cv::norm(r_r_c) >key_frame_min_rot || cv::norm(t_r_c) >key_frame_min_trans )
             return true;
         return false;
     }
@@ -558,9 +675,9 @@ namespace StereoVO
             iter++;
         }
 
-        if ( match_2dkp_index_.size()<100 )
+        if ( match_2dkp_index_.size() < 1000 )
             addMapPoints();
-        if ( map_->map_points_.size() > 1000 )
+        if ( map_->map_points_.size() > 10000 )
         {
             // TODO map is too large, remove some one
             map_point_erase_ratio_ += 0.05;
@@ -580,7 +697,7 @@ namespace StereoVO
         {
             if ( matched[i] == true )
                 continue;
-            double d = ref_->findDepth ( keypoints_curr_left_[i] );
+            double d = mvDepth[i];//ref_->findDepth ( keypoints_curr_left_[i] );
             if ( d<0 )
                 continue;
             Point3d p_world = ref_->camera_->pixel2world (
