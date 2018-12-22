@@ -21,7 +21,7 @@
 #include "map.hpp"
 #include "mappoint.hpp"
 
-const string PathToSequence = "/Users/lixin/Documents/KITTI/data_odometry/dataset/sequences/14";//07
+const string PathToSequence = "/Users/lixin/Documents/KITTI/data_odometry/dataset/sequences/03";//07 14
 const string ParameterFile = "/Users/lixin/Documents/KITTI/KITTI00-02.yaml";
 
 void LoadImages(const string &strPathToSequence, vector<string> &vstrImageLeft,
