@@ -559,11 +559,6 @@ namespace StereoVO
         return dist;
     }
 
-    double Track::findDepth ( )
-    {
-        ;
-    }
-
     bool Track::poseEstimationPnP()
     {
         // construct the 3d 2d observations
@@ -600,12 +595,13 @@ namespace StereoVO
         {
             int index = inliers.at<int> ( i,0 );
             ceres::CostFunction* cost_function = MinReprojectionError::Create( pts3d[index], pts2d[index], K );
-            problem.AddResidualBlock(cost_function, NULL, pose);
+            ceres::LossFunction* loss_function = new ceres::HuberLoss(1.0);
+            problem.AddResidualBlock(cost_function, loss_function, pose);
         }
         ceres::Solver::Options options;
         options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
         options.minimizer_progress_to_stdout = true;
-        options.max_num_iterations = 30;
+        options.max_num_iterations = 50;
         ceres::Solver::Summary summary;
         ceres::Solve(options, &problem, &summary);
 
@@ -655,12 +651,6 @@ namespace StereoVO
 
         optimizer.initializeOptimization();
         optimizer.optimize ( 10 );*/
-
-//        T_c_w_estimated_ = SE3 (
-//                pose->estimate().rotation(),
-//                pose->estimate().translation()
-//        );
-
 
     }
 

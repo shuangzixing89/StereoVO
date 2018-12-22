@@ -21,7 +21,7 @@
 #include "map.hpp"
 #include "mappoint.hpp"
 
-const string PathToSequence = "/Users/lixin/Documents/KITTI/data_odometry/dataset/sequences/06";
+const string PathToSequence = "/Users/lixin/Documents/KITTI/data_odometry/dataset/sequences/20";
 const string ParameterFile = "/Users/lixin/Documents/KITTI/KITTI00-02.yaml";
 
 void LoadImages(const string &strPathToSequence, vector<string> &vstrImageLeft,
@@ -107,12 +107,17 @@ int main(int argc, char **argv)
 //
 //        if(ttrack<T)
 //            usleep((T-ttrack)*1e6);
+        Mat R_c_w = track->curr_->T_c_w_.colRange(0,3).rowRange(0,3),
+                t_c_w = track->curr_->T_c_w_.colRange(3,4).rowRange(0,3);
+        Mat ret = -R_c_w.inv()*t_c_w;
+        Point3d cam_t( ret.at<double>(0),  ret.at<double>(1), ret.at<double>(2));
 
-        int x = (int)(track->curr_->T_c_w_.at<double>(0,3)) + 300,
-                y = -(int)(track->curr_->T_c_w_.at<double>(2,3)) + 100;
+
+        int x = (int)(cam_t.x) + 300,
+                y = (int)(cam_t.z) + 100;
         cv::circle(traj, cv::Point(x,y), 1, CV_RGB(255,0,0), 2 );
         cv::rectangle(traj, cv::Point(10,30), cv::Point(550,50), CV_RGB(0,0,0), CV_FILLED);
-        sprintf(text, "Coordinates: x = %02fm y = %02fm z = %02fm",track->curr_->T_c_w_.at<double>(0,3), track->curr_->T_c_w_.at<double>(1,3), track->curr_->T_c_w_.at<double>(2,3));
+        sprintf(text, "Coordinates: x = %02fm y = %02fm z = %02fm",cam_t.x, cam_t.y, cam_t.z);
         cv::putText(traj, text, cv::Point(10,50), 1, 1, cv::Scalar::all(255));
         cv::imshow("traj", traj );
 
