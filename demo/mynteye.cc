@@ -61,7 +61,7 @@ int main(int argc, char **argv)
         auto &&left_data = api->GetStreamData(Stream::LEFT);
         auto &&right_data = api->GetStreamData(Stream::RIGHT);
         //cap >> frame;   // 读取相机数据
-        auto now = chrono::system_clock::now();
+        auto now = std::chrono::steady_clock::now();
 //        auto timestamp = chrono::duration_cast<chrono::milliseconds>(now - start);
         //SLAM.TrackMonocular(frame, double(timestamp.count())/1000.0);
         // Read left and right images from file
@@ -69,11 +69,11 @@ int main(int argc, char **argv)
         imRight = right_data.frame;
 
         end = std::chrono::steady_clock::now();
-        double tframe = (end - start)/1000;
+        double tframe = std::chrono::duration_cast<std::chrono::duration<double> >(now - start).count();
 
         if(imLeft.empty() || imRight.empty())
         {
-            cerr << endl << "Failed to load image"
+            cerr << endl << "Failed to load image";
             continue;
             //return 1;
         }

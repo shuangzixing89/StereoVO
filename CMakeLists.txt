@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD 11)
 
 find_package(OpenCV 3.0 QUIET)
 if(NOT OpenCV_FOUND)
+    message(FATAL_ERROR "OpenCV > 3.0 not found.")
     find_package(OpenCV 2.4.3 QUIET)
     if(NOT OpenCV_FOUND)
         message(FATAL_ERROR "OpenCV > 2.4.3 not found.")
@@ -13,8 +14,8 @@ endif()
 # Ceres
 find_package(Ceres REQUIRED)
 #mynteye
-find_package(mynteye REQUIRED)
-set(__link_libs mynteye)
+#find_package(mynteye REQUIRED)
+#set(__link_libs mynteye)
 #find_package(Pangolin REQUIRED))
 #
 ## OpenCV
@@ -44,5 +45,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
 add_executable(KITTI ./demo/KITTI.cc)
 target_link_libraries(KITTI ${PROJECT_NAME})
 
-add_executable(MINT demo/mynteye.cc)
-target_link_libraries(MINT ${PROJECT_NAME})
+#add_executable(mynteye_demo demo/mynteye.cc)
+#target_link_libraries(mynteye_demo ${PROJECT_NAME}
+#        {__link_libs}
+#        )

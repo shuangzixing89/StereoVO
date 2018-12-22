@@ -21,7 +21,7 @@
 #include "map.hpp"
 #include "mappoint.hpp"
 
-const string PathToSequence = "/Users/lixin/Documents/KITTI/data_odometry/dataset/sequences/20";
+const string PathToSequence = "/Users/lixin/Documents/KITTI/data_odometry/dataset/sequences/14";//07
 const string ParameterFile = "/Users/lixin/Documents/KITTI/KITTI00-02.yaml";
 
 void LoadImages(const string &strPathToSequence, vector<string> &vstrImageLeft,
@@ -114,7 +114,7 @@ int main(int argc, char **argv)
 
 
         int x = (int)(cam_t.x) + 300,
-                y = (int)(cam_t.z) + 100;
+                y = (int)(-cam_t.z) + 700;
         cv::circle(traj, cv::Point(x,y), 1, CV_RGB(255,0,0), 2 );
         cv::rectangle(traj, cv::Point(10,30), cv::Point(550,50), CV_RGB(0,0,0), CV_FILLED);
         sprintf(text, "Coordinates: x = %02fm y = %02fm z = %02fm",cam_t.x, cam_t.y, cam_t.z);

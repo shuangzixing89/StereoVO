@@ -8,6 +8,7 @@
 #include "common.hpp"
 #include "map.hpp"
 #include "opencv2/features2d.hpp"
+//#include <opencv2/xfeatures2d.hpp>
 
 namespace StereoVO
 {
@@ -27,7 +28,8 @@ namespace StereoVO
         Frame::Ptr  ref_;       // reference key-frame
         Frame::Ptr  curr_;      // current frame
 
-        cv::Ptr<cv::ORB> orb_;  // orb detector and computer
+//        cv::Ptr<cv::xfeatures2d::SURF> surf_;  // orb detector and computer
+//        cv::Ptr<cv::ORB> orb_;  // orb detector and computer
         cv::Ptr<cv::FeatureDetector> detector_;
         cv::Ptr<cv::DescriptorExtractor> descriptor_;
         cv::Ptr<cv::DescriptorMatcher> matcher_  ;

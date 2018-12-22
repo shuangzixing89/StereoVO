@@ -71,8 +71,12 @@ namespace StereoVO
         key_frame_min_rot   = Config::get<double> ( "keyframe_rotation" );
         key_frame_min_trans = Config::get<double> ( "keyframe_translation" );
         map_point_erase_ratio_ = Config::get<double> ( "map_point_erase_ratio" );
-        orb_ = cv::ORB::create ( num_of_features_, scale_factor_, level_pyramid_ );
+//        orb_ = cv::ORB::create ( num_of_features_, scale_factor_, level_pyramid_ );
         detector_ = cv::ORB::create(num_of_features_,scale_factor_, level_pyramid_);
+
+//        cv::Ptr<cv::xfeatures2d::SURF> surf__ = cv::xfeatures2d::SURF::create();
+//        detector_ = cv::xfeatures2d::SURF::create();//cv::ORB::create(num_of_features_,scale_factor_, level_pyramid_);
+
         descriptor_ = cv::ORB::create();
         matcher_ = cv::DescriptorMatcher::create ( "BruteForce-Hamming" );
         Mat R = Mat::eye(3,3,CV_64F),t = Mat::zeros(3,1,CV_64F);
@@ -167,7 +171,7 @@ namespace StereoVO
         keypoints_curr_left_.clear();
         detector_->detect ( curr_->left_, keypoints_curr_left_ );
         detector_->detect ( curr_->right_, keypoints_curr_right_ );
-        std::cout << "ORB num :" << keypoints_curr_left_.size() + keypoints_curr_right_.size() << std::endl;
+        std::cout << "ORB num :" << keypoints_curr_left_.size()  << std::endl;
     }
 
     void Track::computeDescriptors()
@@ -322,11 +326,9 @@ namespace StereoVO
         int N = keypoints_curr_left_.size();
         mvuRight = vector<float>(N,-1.0f);
         mvDepth = vector<float>(N,-1.0f);
-//        matcher_flann_.match(descriptors_curr_left_, descriptors_curr_right_, matches_curr_);
 
         matcher_->knnMatch(descriptors_curr_left_, descriptors_curr_right_, matches_curr_, 2);
 
-        // select the best matches
 
 
         vector<pair<int, int> > vDistIdx;
@@ -337,15 +339,11 @@ namespace StereoVO
         int iL = 0;
         for ( auto& m:matches_curr_ )
         {
-//                for(auto & n:m)
-//                {
-//                    cout << n.distance << "  ";
-//                }
-//                 std::cout << std::endl;
-
+//            if( std::abs( keypoints_curr_left_[m[0].queryIdx].pt.y - keypoints_curr_right_[m[0].trainIdx ].pt.y) > 20 )
+//                continue;
 
             double perfect = m[0].distance / m[1].distance;
-            if(perfect < 0.5 && m[0].distance < 30)
+            if(perfect < 0.6 && m[0].distance < 50)
             {
                 float disparity =  keypoints_curr_left_[ m[0].queryIdx ].pt.x-
                         keypoints_curr_right_[ m[0].trainIdx ].pt.x;
@@ -362,8 +360,6 @@ namespace StereoVO
                 }
 
                 matches_curr_good_.push_back(m[0]);
-//                vIniMatches_.push_back(m[0].trainIdx);
-//                     std::cout << m[0].trainIdx << std::endl;
             }
             iL ++;
         }
@@ -372,7 +368,6 @@ namespace StereoVO
         const float median = vDistIdx[vDistIdx.size()/2].first;
         const float thDist = median;
 
-//        int num = 0;
         for(int i=vDistIdx.size()-1;i>=0;i--)
         {
             if(vDistIdx[i].first<thDist)
@@ -381,38 +376,10 @@ namespace StereoVO
             }
             else
             {
-//                num ++;
                 mvuRight[vDistIdx[i].second]=-1;
                 mvDepth[vDistIdx[i].second]=-1;
             }
         }
-//        for( auto &i:vDistIdx )
-//        {
-//            if(mvuRight[i.second] != -1)
-//            {
-//                cv::DMatch x;
-//                x.queryIdx = i.second;
-//                x.trainIdx = mvuRight[i.second];
-//                matches_curr_good_.push_back(x);
-//            }
-//        }
-
-
-//        float disparity = (uL-bestIdxR);
-//
-//        if(disparity>=minD && disparity<maxD)
-//        {
-//            if(disparity<=0)
-//            {
-//                disparity=0.01;
-//                bestIdxR = uL-0.01;
-//            }
-//            mvDepth[iL]=curr_->camera_->bf_/disparity;
-//            mvuRight[iL] = bestIdxR;
-//            vDistIdx.push_back(pair<int,int>(bestDist,iL));
-//        }
-
-
         std::cout << "strero matches: " << matches_curr_good_.size() << std::endl;
 
 
@@ -459,7 +426,7 @@ namespace StereoVO
         {
 
             double perfect = m[0].distance / m[1].distance;
-            if(perfect < 0.6 /*&& m[0].distance < 100*/)
+            if(perfect < 0.65 && m[0].distance < 65 )
             {
                 good_matchs.push_back(m[0]);
                 match_3dpts_.push_back( candidate[m[0].queryIdx] );
@@ -753,9 +720,9 @@ namespace StereoVO
             iter++;
         }
 
-        if ( match_2dkp_index_.size() < 500 )
+        if ( match_2dkp_index_.size() < 800 )
             addMapPoints();
-        if ( map_->map_points_.size() > 5000 )
+        if ( map_->map_points_.size() > 3000 )
         {
             // TODO map is too large, remove some one
             map_point_erase_ratio_ += 0.05;
