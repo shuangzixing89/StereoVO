@@ -1,14 +1,23 @@
-cmake_minimum_required(VERSION 3.12)
+cmake_minimum_required(VERSION 2.8)
 project(StereoVO)
 
 set(CMAKE_CXX_STANDARD 11)
 
-# OpenCV
-find_package( OpenCV 3.1 REQUIRED )
+find_package(OpenCV 3.0 QUIET)
+if(NOT OpenCV_FOUND)
+    find_package(OpenCV 2.4.3 QUIET)
+    if(NOT OpenCV_FOUND)
+        message(FATAL_ERROR "OpenCV > 2.4.3 not found.")
+    endif()
+endif()
 # Ceres
 find_package(Ceres REQUIRED)
-
-#find_package(Pangolin REQUIRED)
+#mynteye
+find_package(mynteye REQUIRED)
+set(__link_libs mynteye)
+#find_package(Pangolin REQUIRED))
+#
+## OpenCV
 
 include_directories(
         ${PROJECT_SOURCE_DIR}/include
@@ -35,5 +44,5 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
 add_executable(KITTI ./demo/KITTI.cc)
 target_link_libraries(KITTI ${PROJECT_NAME})
 
-add_executable(MINT ./demo/MINT.cc)
+add_executable(MINT demo/mynteye.cc)
 target_link_libraries(MINT ${PROJECT_NAME})

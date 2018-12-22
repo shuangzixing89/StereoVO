@@ -21,6 +21,10 @@
 #include "map.hpp"
 #include "mappoint.hpp"
 
+#include "mynteye/api.h"
+
+MYNTEYE_USE_NAMESPACE
+
 const string PathToSequence = "/home/lixin/Documents/KITTI/data_odometry/dataset/sequences/00";
 const string ParameterFile = "/home/lixin/Documents/KITTI/KITTI00-02.yaml";
 
@@ -29,14 +33,13 @@ void DrawTrajectory(vector<vector<double>>  map_points);
 
 int main(int argc, char **argv)
 {
-    // Retrieve paths to images
-    vector<string> vstrImageLeft;
-    vector<string> vstrImageRight;
-    vector<double> vTimestamps;
-    LoadImages(PathToSequence, vstrImageLeft, vstrImageRight, vTimestamps);
+    auto &&api = API::Create(argc, argv);
+    if (!api)
+        return 1;
+
+    api->Start(Source::VIDEO_STREAMING);
 
 
-    const int nImages = vstrImageLeft.size();
 
     //// Create VO system.
     StereoVO::Config::setParameterFile(ParameterFile);
@@ -44,13 +47,7 @@ int main(int argc, char **argv)
     StereoVO::Camera::Ptr camera ( new StereoVO::Camera );
 
 
-    // Vector for tracking time statistics
-    vector<float> vTimesTrack;
-    vTimesTrack.resize(nImages);
 
-    cout << endl << "-------" << endl;
-    cout << "Start processing sequence ..." << endl;
-    cout << "Images in the sequence: " << nImages << endl << endl;
 
     char text[100];
     Mat traj = Mat::zeros(1000, 600, CV_8UC3);
@@ -59,11 +56,17 @@ int main(int argc, char **argv)
     Mat imLeft, imRight;
     std::chrono::steady_clock::time_point start,end;
     start = std::chrono::steady_clock::now();
-    for(int ni=0; ni<nImages; ni++)
+    while(true)
     {
+        auto &&left_data = api->GetStreamData(Stream::LEFT);
+        auto &&right_data = api->GetStreamData(Stream::RIGHT);
+        //cap >> frame;   // 读取相机数据
+        auto now = chrono::system_clock::now();
+//        auto timestamp = chrono::duration_cast<chrono::milliseconds>(now - start);
+        //SLAM.TrackMonocular(frame, double(timestamp.count())/1000.0);
         // Read left and right images from file
-        imLeft = cv::imread(vstrImageLeft[ni],CV_LOAD_IMAGE_UNCHANGED);
-        imRight = cv::imread(vstrImageRight[ni],CV_LOAD_IMAGE_UNCHANGED);
+        imLeft = left_data.frame;
+        imRight = right_data.frame;
 
         end = std::chrono::steady_clock::now();
         double tframe = (end - start)/1000;
