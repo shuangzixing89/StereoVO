@@ -34,6 +34,7 @@ namespace StereoVO
         cv::Ptr<cv::DescriptorExtractor> descriptor_;
         cv::Ptr<cv::DescriptorMatcher> matcher_  ;
         vector<cv::KeyPoint>    keypoints_curr_left_, keypoints_curr_right_;    // keypoints in current frame
+        vector<cv::KeyPoint>  keypoints_ref_left_;
         Mat                     descriptors_curr_left_, descriptors_curr_right_;  // descriptor in current frame
         vector <vector<cv::DMatch>> matches_curr_;
         vector < cv::DMatch > matches_curr_good_;

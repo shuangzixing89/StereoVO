@@ -12,7 +12,6 @@ namespace StereoVO
         cx_ = Config::get<float>("Camera.cx");
         cy_ = Config::get<float>("Camera.cy");
 
-        //TODO don not know
         bf_ = Config::get<float>("Camera.bf");
         b_ = bf_ / fx_;
         ThDepth_ = bf_ * Config::get<float>("ThDepth") / fx_;

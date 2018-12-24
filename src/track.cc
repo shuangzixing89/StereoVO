@@ -16,13 +16,57 @@
 
 namespace StereoVO
 {
+    /*struct MinReprojectionError
+    {
+        MinReprojectionError( Point2d p_p, Mat K_cam ):  point_2d(p_p), K(K_cam){}
+
+        template <typename  T>
+        bool operator()(
+                const T* p_world,
+                const T* pose,
+                T* residuals
+        ) const{
+//            T p_world[3];
+//            p_world[0] = T(point_3d.x);
+//            p_world[1] = T(point_3d.y);
+//            p_world[2] = T(point_3d.z);
+
+            T p_cam[3];
+            ceres::AngleAxisRotatePoint(pose, p_world, p_cam);
+            p_cam[0] += pose[3];
+            p_cam[1] += pose[4];
+            p_cam[2] += pose[5];
+
+            T predicted_x = T( K.at<double>(0,0) ) * p_cam[0]/p_cam[2] + T(K.at<double>(0,2));
+            T predicted_y = T( K.at<double>(1,1) ) * p_cam[1]/p_cam[2] + T(K.at<double>(1,2));
+
+            T observed_x = T(point_2d.x);
+            T observed_y = T(point_2d.y);
+
+            residuals[0] = predicted_x - observed_x;
+            residuals[1] = predicted_y - observed_y;
+
+            return true;
+        }
+
+        static ceres::CostFunction* Create(
+                const Point2d Point_pixel, const Mat K_cam){
+            return (new ceres::AutoDiffCostFunction< MinReprojectionError, 2, 3, 6 >(new MinReprojectionError(Point_pixel, K_cam)));
+        }
+
+//        Point3d point_3d;
+        Point2d point_2d;
+        Mat K;
+    };*/
+
     struct MinReprojectionError
     {
         MinReprojectionError( Point3d p_w, Point2d p_p, Mat K_cam ): point_3d(p_w), point_2d(p_p), K(K_cam){}
 
         template <typename  T>
         bool operator()(
-                const T* pose,
+//                const T* p_world,
+                const T* const pose,
                 T* residuals
                 ) const{
             T p_world[3];
@@ -48,9 +92,9 @@ namespace StereoVO
             return true;
         }
 
-        static ceres::CostFunction* Create(const Point3d point_world,
+        static ceres::CostFunction* Create(const Point3d Point_wordl,
                 const Point2d Point_pixel, const Mat K_cam){
-            return (new ceres::AutoDiffCostFunction< MinReprojectionError, 2, 6 >(new MinReprojectionError(point_world, Point_pixel, K_cam)));
+            return (new ceres::AutoDiffCostFunction< MinReprojectionError, 2, 6 >(new MinReprojectionError(Point_wordl, Point_pixel, K_cam)));
         }
 
         Point3d point_3d;
@@ -97,7 +141,6 @@ namespace StereoVO
             case INITIALIZING:
             {
                 state_ = OK;
-                // TODO find curr_->frame->T_c_w_ / ref_->frame->T_c_w_ / T_c_w_estimated_ 地址相同
                 curr_ = ref_ = frame;
                 // extract features from first frame and add them into map
                 extractKeyPoints();
@@ -434,18 +477,18 @@ namespace StereoVO
             }
         }
 
-        vector<cv::KeyPoint>  cuur_key_;
+        keypoints_ref_left_.clear() ;
 //        detector_->detect ( ref_->left_, cuur_key_ );
         for( auto &c:candidate)
         {
             cv::KeyPoint key;
             key.pt = curr_->camera_->world2pixel( c->pos_, curr_->T_c_w_ );
-            cuur_key_.push_back(key);
+            keypoints_ref_left_.push_back(key);
         }
 
 
         Mat match3d;
-        drawMatches ( ref_->left_, cuur_key_, curr_->left_ ,keypoints_curr_left_, good_matchs, match3d );
+        drawMatches ( ref_->left_, keypoints_ref_left_, curr_->left_ ,keypoints_curr_left_, good_matchs, match3d );
         cv::resize(match3d, match3d, cv::Size(1000,400));
         cv::imshow ( "match3d", match3d );
 
@@ -530,11 +573,12 @@ namespace StereoVO
     {
         // construct the 3d 2d observations
         vector<cv::Point3f> pts3d;
-        vector<cv::Point2f> pts2d;
+        vector<cv::Point2f> pts2d, pts2d_ref;
 
         for ( int index:match_2dkp_index_ )
         {
             pts2d.push_back ( keypoints_curr_left_[index].pt );
+            pts2d_ref.push_back (keypoints_ref_left_[index].pt);
         }
         for ( MapPoint::Ptr pt:match_3dpts_ )
         {
@@ -561,10 +605,19 @@ namespace StereoVO
         for(int i=0; i<inliers.rows; i++ )
         {
             int index = inliers.at<int> ( i,0 );
+            double pt3d_in[3] = {pts3d[index].x, pts3d[index].y, pts3d[index].z};
             ceres::CostFunction* cost_function = MinReprojectionError::Create( pts3d[index], pts2d[index], K );
-            ceres::LossFunction* loss_function = new ceres::HuberLoss(1.0);
+            ceres::LossFunction* loss_function = new ceres::CauchyLoss(1.0);
             problem.AddResidualBlock(cost_function, loss_function, pose);
         }
+//        for(int i=0; i<inliers.rows; i++ )
+//        {
+//            int index = inliers.at<int> ( i,0 );
+//            Point3d pt3d_in = pts3d[index] ;
+//            ceres::CostFunction* cost_function = MinReprojectionError::Create( pt3d_in, pts2d_ref[index], K );
+//            ceres::LossFunction* loss_function = new ceres::HuberLoss(1.0);
+//            problem.AddResidualBlock(cost_function, loss_function, pose);
+//        }
         ceres::Solver::Options options;
         options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
         options.minimizer_progress_to_stdout = true;
@@ -716,13 +769,15 @@ namespace StereoVO
             if ( iter->second->good_ == false )
             {
                 // TODO try triangulate this map point
+                iter = map_->map_points_.erase(iter);
+                continue;
             }
             iter++;
         }
 
-        if ( match_2dkp_index_.size() < 800 )
+        if ( match_2dkp_index_.size() < 500 )
             addMapPoints();
-        if ( map_->map_points_.size() > 3000 )
+        if ( map_->map_points_.size() > 5000 )
         {
             // TODO map is too large, remove some one
             map_point_erase_ratio_ += 0.05;
