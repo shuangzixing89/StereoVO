@@ -16,6 +16,7 @@ make
 ```
 #### How to run?
 ```
+cd ${PROJECT_SOURCE_DIR}/bin
 ./KITTI
 ```
 #### Before you run 
