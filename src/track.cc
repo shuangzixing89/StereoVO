@@ -212,8 +212,81 @@ namespace StereoVO
     {
         keypoints_curr_right_.clear();
         keypoints_curr_left_.clear();
-        detector_->detect ( curr_->left_, keypoints_curr_left_ );
-        detector_->detect ( curr_->right_, keypoints_curr_right_ );
+
+
+        // Indicate where to detect features in an image   (region of interest)
+        int rows = curr_->left_.rows, cols = curr_->left_.cols;
+        cv::Mat mask_left_ul = curr_->left_.rowRange(0,rows/2).colRange(0,cols/2).clone(),
+                mask_left_ur = curr_->left_.rowRange(0,rows/2).colRange(cols/2,cols).clone(),
+                mask_left_dl = curr_->left_.rowRange(rows/2,rows).colRange(0,cols/2).clone(),
+                mask_left_dr = curr_->left_.rowRange(rows/2,rows).colRange(cols/2,cols).clone(),
+                mask_right_ul = curr_->right_.rowRange(0,rows/2).colRange(0,cols/2).clone(),
+                mask_right_ur = curr_->right_.rowRange(0,rows/2).colRange(cols/2,cols).clone(),
+                mask_right_dl = curr_->right_.rowRange(rows/2,rows).colRange(0,cols/2).clone(),
+                mask_right_dr = curr_->right_.rowRange(rows/2,rows).colRange(cols/2,cols).clone();
+
+
+
+        vector<cv::KeyPoint>    keypoints_;
+
+        detector_->detect ( mask_left_ul, keypoints_curr_left_ );
+        detector_->detect ( mask_left_ur, keypoints_ );
+        for(auto &i:keypoints_)
+        {
+            i.pt.x += cols/2;
+            keypoints_curr_left_.push_back(i);
+        }
+        keypoints_.clear();
+        detector_->detect ( mask_left_dl, keypoints_ );
+        for(auto &i:keypoints_)
+        {
+            i.pt.y += rows/2;
+            keypoints_curr_left_.push_back(i);
+        }
+        keypoints_.clear();
+        detector_->detect ( mask_left_dr, keypoints_ );
+        for(auto &i:keypoints_)
+        {
+            i.pt.y += rows/2;
+            i.pt.x += cols/2;
+            keypoints_curr_left_.push_back(i);
+        }
+        keypoints_.clear();
+
+
+        detector_->detect ( mask_right_ul, keypoints_curr_right_ );
+        detector_->detect ( mask_right_ur, keypoints_ );
+        for(auto &i:keypoints_)
+        {
+            i.pt.x += cols/2;
+            keypoints_curr_right_.push_back(i);
+        }
+        keypoints_.clear();
+        detector_->detect ( mask_right_dl, keypoints_ );
+        for(auto &i:keypoints_)
+        {
+            i.pt.y += rows/2;
+            keypoints_curr_right_.push_back(i);
+        }
+        keypoints_.clear();
+        detector_->detect ( mask_right_dr, keypoints_ );
+        for(auto &i:keypoints_)
+        {
+            i.pt.y += rows/2;
+            i.pt.x += cols/2;
+            keypoints_curr_right_.push_back(i);
+        }
+        keypoints_.clear();
+
+
+//        detector_->detect ( mask_right_up, keypoints_curr_right_ );
+//        detector_->detect ( mask_right_down, keypoints_ );
+//        for(auto &i:keypoints_)
+//        {
+//            i.pt.y += curr_->left_.rows/2;
+//            keypoints_curr_right_.push_back(i);
+//        }
+
         std::cout << "ORB num :" << keypoints_curr_left_.size()  << std::endl;
     }
 
@@ -377,7 +450,7 @@ namespace StereoVO
         vector<pair<int, int> > vDistIdx;
         vDistIdx.reserve(N);
         const float minZ = curr_->camera_->b_;
-        const float minD = 0;
+        const float minD = 3;
         const float maxD = curr_->camera_->bf_ / minZ;
         int iL = 0;
         for ( auto& m:matches_curr_ )
@@ -386,7 +459,9 @@ namespace StereoVO
 //                continue;
 
             double perfect = m[0].distance / m[1].distance;
-            if(perfect < 0.6 && m[0].distance < 50)
+            float up_dowm =  std::abs( keypoints_curr_left_[ m[0].queryIdx ].pt.y-
+                               keypoints_curr_right_[ m[0].trainIdx ].pt.y);
+            if(perfect < 0.7 &&  up_dowm < 4/*&& m[0].distance < 50*/)
             {
                 float disparity =  keypoints_curr_left_[ m[0].queryIdx ].pt.x-
                         keypoints_curr_right_[ m[0].trainIdx ].pt.x;
@@ -461,15 +536,37 @@ namespace StereoVO
 
         matcher_->knnMatch(desp_map, descriptors_curr_left_, matches, 2);
 
+        double x_e = 0,y_e = 0,e_i = 0;
+        for ( auto& m:matches )
+        {
+            double perfect = m[0].distance / m[1].distance;
+            if(perfect < 0.7  && m[0].distance < 70 )
+            {
+                Point2d point = curr_->camera_->world2pixel(  candidate[m[0].queryIdx]->pos_, curr_->T_c_w_ );
+                double x_error = point.x - keypoints_curr_left_[m[0].trainIdx].pt.x,
+                        y_error = point.y - keypoints_curr_left_[m[0].trainIdx].pt.y;
+                x_e += std::abs(x_error);
+                y_e += std::abs(y_error);
+                e_i++;
+            }
+        }
+
+        x_e /= e_i;
+        y_e /= e_i;
+
+
+
         match_3dpts_.clear();
         match_2dkp_index_.clear();
         // select the best matches
         vector<cv::DMatch> good_matchs;
         for ( auto& m:matches )
         {
-
             double perfect = m[0].distance / m[1].distance;
-            if(perfect < 0.65 && m[0].distance < 65 )
+            Point2d point = curr_->camera_->world2pixel(  candidate[m[0].queryIdx]->pos_, curr_->T_c_w_ );
+            double x_error = std::abs(point.x - keypoints_curr_left_[m[0].trainIdx].pt.x),
+                    y_error = std::abs(point.y - keypoints_curr_left_[m[0].trainIdx].pt.y);
+            if(perfect < 0.7  && m[0].distance < 70 && x_error/x_e < 2 && y_error/y_e < 2 )
             {
                 good_matchs.push_back(m[0]);
                 match_3dpts_.push_back( candidate[m[0].queryIdx] );
@@ -527,7 +624,7 @@ namespace StereoVO
             {
                 // TODO
                 double d = mvDepth[i] ;//findDepth ( keypoints_curr_left_[i] , keypoints_curr_right_[ 0 ]);
-                if ( d < 0 )
+                if ( d < 0 || d > 50)
                     continue;
                 Point3d p_world = ref_->camera_->pixel2world (
                         Point2d( keypoints_curr_left_[i].pt.x , keypoints_curr_left_[i].pt.y ), curr_->T_c_w_, d
@@ -593,7 +690,7 @@ namespace StereoVO
         Mat rvec, tvec, inliers, R;
         if(pts3d.size() < 10)
             return false;
-        cv::solvePnPRansac ( pts3d, pts2d, K, Mat(), rvec, tvec, false, 100, 4.0, 0.99, inliers );
+        cv::solvePnPRansac ( pts3d, pts2d, K, Mat(), rvec, tvec, false, 100, 3.0, 0.99, inliers );
         num_inliers_ = inliers.rows;
         cv::Rodrigues(rvec, R);
         double pose[6] = { rvec.at<double>(0), rvec.at<double>(1), rvec.at<double>(2), tvec.at<double>(0), tvec.at<double>(1), tvec.at<double>(2)};
@@ -607,7 +704,7 @@ namespace StereoVO
             int index = inliers.at<int> ( i,0 );
             double pt3d_in[3] = {pts3d[index].x, pts3d[index].y, pts3d[index].z};
             ceres::CostFunction* cost_function = MinReprojectionError::Create( pts3d[index], pts2d[index], K );
-            ceres::LossFunction* loss_function = new ceres::CauchyLoss(1.0);
+            ceres::LossFunction* loss_function = new ceres::CauchyLoss(1.5);
             problem.AddResidualBlock(cost_function, loss_function, pose);
         }
 //        for(int i=0; i<inliers.rows; i++ )
@@ -775,7 +872,7 @@ namespace StereoVO
             iter++;
         }
 
-        if ( match_2dkp_index_.size() < 500 )
+        if ( match_2dkp_index_.size() < 1000 )
             addMapPoints();
         if ( map_->map_points_.size() > 5000 )
         {
@@ -798,7 +895,8 @@ namespace StereoVO
             if ( matched[i] == true )
                 continue;
             double d = mvDepth[i];//ref_->findDepth ( keypoints_curr_left_[i] );
-            if ( d<0 )
+            //TODO this is right?
+            if ( d<0 || d > 70 )
                 continue;
             Point3d p_world = ref_->camera_->pixel2world (
                     keypoints_curr_left_[i].pt,

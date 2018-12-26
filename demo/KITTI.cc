@@ -23,6 +23,7 @@
 
 const string PathToSequence = "/Users/lixin/Documents/KITTI/data_odometry/dataset/sequences/14";//07 14  04
 const string ParameterFile = "/Users/lixin/Documents/KITTI/KITTI00-02.yaml";
+const string GroundtruthFile = "/Users/lixin/Documents/KITTI/data_odometry/dataset/poses/07.txt";
 
 void LoadImages(const string &strPathToSequence, vector<string> &vstrImageLeft,
                 vector<string> &vstrImageRight, vector<double> &vTimestamps);
@@ -32,6 +33,31 @@ void DrawTrajectory(vector<vector<double>>  map_points);
 // TODO feature point should be
 int main(int argc, char **argv)
 {
+    vector<vector<double>> truths;
+    ifstream fTruth(GroundtruthFile.c_str());
+    if ( !fTruth )
+    {
+        std::cout << "can not open GroudtruthFile" <<endl;
+        return -1;
+    }
+    double t;
+    while(!fTruth.eof())
+    {
+        double t[12];
+        for( auto&d:t )
+        {
+            fTruth >> d;
+        }
+//        fTruth >> t;
+        vector<double> ts;
+        ts.push_back(t[3]);
+        ts.push_back(t[7]);
+        ts.push_back(t[11]);
+        truths.push_back(ts);
+    }
+
+
+
     // Retrieve paths to images
     vector<string> vstrImageLeft;
     vector<string> vstrImageRight;
@@ -55,12 +81,19 @@ int main(int argc, char **argv)
     cout << "Start processing sequence ..." << endl;
     cout << "Images in the sequence: " << nImages << endl << endl;
 
-    char text[100];
+    char text[100],text_t[100];
     Mat traj = Mat::zeros(1000, 600, CV_8UC3);
 
     // Main loop
     Mat imLeft, imRight;
-    for(int ni=0; ni<nImages; ni++)
+
+    //error
+    double e = 0;
+    int ei = 0;
+
+    bool view_t = false;
+
+    for(int ni=0 ; ni<nImages; ni++)
     {
         // Read left and right images from file
         imLeft = cv::imread(vstrImageLeft[ni],CV_LOAD_IMAGE_UNCHANGED);
@@ -74,6 +107,11 @@ int main(int argc, char **argv)
             continue;
             //return 1;
         }
+
+//        auto clahe = cv::createCLAHE(1.0, cv::Size(20, 20));
+//        clahe->apply(imLeft, imLeft);
+//        clahe->apply(imRight, imRight);
+
 
         StereoVO::Frame::Ptr pFrame = StereoVO::Frame::createFrame();
         pFrame->camera_ = camera;
@@ -114,14 +152,27 @@ int main(int argc, char **argv)
         Mat ret = -R_c_w.inv()*t_c_w;
         Point3d cam_t( ret.at<double>(0),  ret.at<double>(1), ret.at<double>(2));
 
-
         int x = (int)(cam_t.x) + 300,
                 y = (int)(-cam_t.z) + 700;
         cv::circle(traj, cv::Point(x,y), 1, CV_RGB(255,0,0), 2 );
-        cv::rectangle(traj, cv::Point(10,30), cv::Point(550,50), CV_RGB(0,0,0), CV_FILLED);
-        sprintf(text, "Coordinates: x = %02fm y = %02fm z = %02fm",cam_t.x, cam_t.y, cam_t.z);
-        cv::putText(traj, text, cv::Point(10,50), 1, 1, cv::Scalar::all(255));
+        cv::rectangle(traj, cv::Point(10,30), cv::Point(550,70), CV_RGB(0,0,0), CV_FILLED);
+        sprintf(text, "Coordinates: x = %6.2fm y = %6.2fm z = %6.2fm",cam_t.x, cam_t.y, cam_t.z);
+        if(view_t)
+        {
+            int x_t = (int)(truths[ni][0]) + 300,
+                    y_t = (int)-(truths[ni][2]) + 700;
+            cv::circle(traj, cv::Point(x_t,y_t), 1, CV_RGB(255,255,255), 2 );
+            sprintf(text_t, "Coordinat_t: x = %6.2fm y = %6.2fm z = %6.2fm", truths[ni][0], truths[ni][1],
+                    truths[ni][2]);
+            cv::putText(traj, text_t, cv::Point(10,70), 1, 1, cv::Scalar::all(255));
+            e += std::sqrt( (cam_t.x - truths[ni][0]) * (cam_t.x - truths[ni][0]) +
+                            (cam_t.y - truths[ni][1]) * (cam_t.y - truths[ni][1]) +
+                            (cam_t.z - truths[ni][2]) * (cam_t.z - truths[ni][2]));
+            ei ++;
+        }
+        cv::putText(traj, text, cv::Point(10, 50), 1, 1, cv::Scalar::all(255));
         cv::imshow("traj", traj );
+
 
         /*if(ni == 10)
         {
@@ -140,6 +191,9 @@ int main(int argc, char **argv)
         }*/
 
     }
+
+    if(view_t)
+    std::cout << "ATE:" << std::sqrt(e/(double)ei) << std::endl;
 
     return 0;
 }
