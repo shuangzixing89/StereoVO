@@ -21,7 +21,7 @@
 #include "map.hpp"
 #include "mappoint.hpp"
 
-const string PathToSequence = "/Users/lixin/Documents/KITTI/data_odometry/dataset/sequences/14";//07 14  04
+const string PathToSequence = "/Users/lixin/Documents/KITTI/data_odometry/dataset/sequences/12";//07 14  04 06
 const string ParameterFile = "/Users/lixin/Documents/KITTI/KITTI00-02.yaml";
 const string GroundtruthFile = "/Users/lixin/Documents/KITTI/data_odometry/dataset/poses/07.txt";
 
@@ -31,29 +31,32 @@ void DrawTrajectory(vector<vector<double>>  map_points);
 
 // TODO add keyframe.cc and add a local BA
 // TODO feature point should be
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
+    bool view_t = false;
     vector<vector<double>> truths;
-    ifstream fTruth(GroundtruthFile.c_str());
-    if ( !fTruth )
+    if (view_t)
     {
-        std::cout << "can not open GroudtruthFile" <<endl;
-        return -1;
-    }
-    double t;
-    while(!fTruth.eof())
-    {
-        double t[12];
-        for( auto&d:t )
+        ifstream fTruth(GroundtruthFile.c_str());
+        if (!fTruth)
         {
-            fTruth >> d;
+            std::cout << "can not open GroudtruthFile" << endl;
+            return -1;
         }
-//        fTruth >> t;
-        vector<double> ts;
-        ts.push_back(t[3]);
-        ts.push_back(t[7]);
-        ts.push_back(t[11]);
-        truths.push_back(ts);
+        double t;
+        while (!fTruth.eof())
+        {
+            double t[12];
+            for (auto &d:t)
+            {
+                fTruth >> d;
+            }
+    //        fTruth >> t;
+            vector<double> ts;
+            ts.push_back(t[3]);
+            ts.push_back(t[7]);
+            ts.push_back(t[11]);
+            truths.push_back(ts);
+        }
     }
 
 
@@ -91,9 +94,9 @@ int main(int argc, char **argv)
     double e = 0;
     int ei = 0;
 
-    bool view_t = false;
+    int begin = 0;
 
-    for(int ni=0 ; ni<nImages; ni++)
+    for(int ni=begin ; ni<nImages; ni++)
     {
         // Read left and right images from file
         imLeft = cv::imread(vstrImageLeft[ni],CV_LOAD_IMAGE_UNCHANGED);
@@ -159,8 +162,8 @@ int main(int argc, char **argv)
         sprintf(text, "Coordinates: x = %6.2fm y = %6.2fm z = %6.2fm",cam_t.x, cam_t.y, cam_t.z);
         if(view_t)
         {
-            int x_t = (int)(truths[ni][0]) + 300,
-                    y_t = (int)-(truths[ni][2]) + 700;
+            int x_t = (int)(/*truths[begin][0] - */truths[ni][0]) + 300,
+                    y_t = (int)-(/*truths[begin][2] - */truths[ni][2]) + 700;
             cv::circle(traj, cv::Point(x_t,y_t), 1, CV_RGB(255,255,255), 2 );
             sprintf(text_t, "Coordinat_t: x = %6.2fm y = %6.2fm z = %6.2fm", truths[ni][0], truths[ni][1],
                     truths[ni][2]);
@@ -194,7 +197,8 @@ int main(int argc, char **argv)
 
     if(view_t)
     std::cout << "ATE:" << std::sqrt(e/(double)ei) << std::endl;
-
+    // 04 ATE:2.34239
+    // 07 ATE:2.59293
     return 0;
 }
 

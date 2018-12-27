@@ -140,12 +140,13 @@ namespace StereoVO
         {
             case INITIALIZING:
             {
-                state_ = OK;
                 curr_ = ref_ = frame;
                 // extract features from first frame and add them into map
                 extractKeyPoints();
                 computeDescriptors();
                 matchCurr();
+                // TODO add some condition to make init more robust
+                state_ = OK;
 //                ComputeStereoMatches();
                 addKeyFrame();      // the first frame is a key-frame
                 break;
@@ -429,11 +430,11 @@ namespace StereoVO
             }
         }
 
-        Mat img_goodmatch;
-        drawMatches ( curr_->left_, keypoints_curr_left_, curr_->right_ ,keypoints_curr_right_, matches_curr_good_, img_goodmatch );
-        cv::resize(img_goodmatch, img_goodmatch, cv::Size(1000,400));
-        cv::imshow ( "strero matches: ", img_goodmatch );
-        cout<<"strero matches: "<<matches_curr_good_.size() <<endl;
+//        Mat img_goodmatch;
+//        drawMatches ( curr_->left_, keypoints_curr_left_, curr_->right_ ,keypoints_curr_right_, matches_curr_good_, img_goodmatch );
+//        cv::resize(img_goodmatch, img_goodmatch, cv::Size(1000,400));
+//        cv::imshow ( "strero matches: ", img_goodmatch );
+//        cout<<"strero matches: "<<matches_curr_good_.size() <<endl;
 //        std::cout << num << "   all:  "  <<  mvuRight.size() << " ORB num " << N << std::endl;
     }
 
@@ -450,7 +451,7 @@ namespace StereoVO
         vector<pair<int, int> > vDistIdx;
         vDistIdx.reserve(N);
         const float minZ = curr_->camera_->b_;
-        const float minD = 3;
+        const float minD = 2;
         const float maxD = curr_->camera_->bf_ / minZ;
         int iL = 0;
         for ( auto& m:matches_curr_ )
@@ -483,33 +484,32 @@ namespace StereoVO
         }
 
         sort(vDistIdx.begin(),vDistIdx.end());
-        const float median = vDistIdx[vDistIdx.size()/2].first;
+        const float median = vDistIdx[vDistIdx.size() /2].first;
         const float thDist = median;
+        max_dis_ = thDist;
 
-        for(int i=vDistIdx.size()-1;i>=0;i--)
-        {
-            if(vDistIdx[i].first<thDist)
-            {
-                break;
-            }
-            else
-            {
-                mvuRight[vDistIdx[i].second]=-1;
-                mvDepth[vDistIdx[i].second]=-1;
-            }
-        }
+        //TODO there is some BUG
+//        for(int i=vDistIdx.size()-1;i>=0;i--)
+//        {
+//            if(vDistIdx[i].first<thDist)
+//            {
+//                break;
+//            }
+//            else
+//            {
+//                mvuRight[vDistIdx[i].second]=-1;
+//                mvDepth[vDistIdx[i].second]=-1;
+//            }
+//        }
         std::cout << "strero matches: " << matches_curr_good_.size() << std::endl;
 
 
 
         //绘制匹配结果
-//        Mat img_match;
-        Mat img_goodmatch;
-//        drawMatches ( curr_->left_, keypoints_curr_left_, curr_->right_ ,keypoints_curr_right_, matches_curr_, img_match );
-        drawMatches ( curr_->left_, keypoints_curr_left_, curr_->right_ ,keypoints_curr_right_, matches_curr_good_, img_goodmatch );
-//        cv::imshow ( "all", img_match );
-        cv::resize(img_goodmatch, img_goodmatch, cv::Size(1000,400));
-        cv::imshow ( "strero matches: ", img_goodmatch );
+//        Mat img_goodmatch;
+//        drawMatches ( curr_->left_, keypoints_curr_left_, curr_->right_ ,keypoints_curr_right_, matches_curr_good_, img_goodmatch );
+//        cv::resize(img_goodmatch, img_goodmatch, cv::Size(1000,400));
+//        cv::imshow ( "strero matches: ", img_goodmatch );
 
     }
 
@@ -536,11 +536,14 @@ namespace StereoVO
 
         matcher_->knnMatch(desp_map, descriptors_curr_left_, matches, 2);
 
+        int max_dis = 0,min_dis = 100;
         double x_e = 0,y_e = 0,e_i = 0;
         for ( auto& m:matches )
         {
+            if(m[0].distance > max_dis )    max_dis = m[0].distance;
+            if(m[0].distance < min_dis )    min_dis = m[0].distance;
             double perfect = m[0].distance / m[1].distance;
-            if(perfect < 0.7  && m[0].distance < 70 )
+            if(perfect < 0.7 )
             {
                 Point2d point = curr_->camera_->world2pixel(  candidate[m[0].queryIdx]->pos_, curr_->T_c_w_ );
                 double x_error = point.x - keypoints_curr_left_[m[0].trainIdx].pt.x,
@@ -566,7 +569,7 @@ namespace StereoVO
             Point2d point = curr_->camera_->world2pixel(  candidate[m[0].queryIdx]->pos_, curr_->T_c_w_ );
             double x_error = std::abs(point.x - keypoints_curr_left_[m[0].trainIdx].pt.x),
                     y_error = std::abs(point.y - keypoints_curr_left_[m[0].trainIdx].pt.y);
-            if(perfect < 0.7  && m[0].distance < 70 && x_error/x_e < 2 && y_error/y_e < 2 )
+            if(perfect < 0.7  /*&& m[0].distance < 3*min_dis*/ && x_error/x_e < 2 && y_error/y_e < 2 )
             {
                 good_matchs.push_back(m[0]);
                 match_3dpts_.push_back( candidate[m[0].queryIdx] );
@@ -675,7 +678,7 @@ namespace StereoVO
         for ( int index:match_2dkp_index_ )
         {
             pts2d.push_back ( keypoints_curr_left_[index].pt );
-            pts2d_ref.push_back (keypoints_ref_left_[index].pt);
+//            pts2d_ref.push_back (keypoints_ref_left_[index].pt);
         }
         for ( MapPoint::Ptr pt:match_3dpts_ )
         {
@@ -690,7 +693,7 @@ namespace StereoVO
         Mat rvec, tvec, inliers, R;
         if(pts3d.size() < 10)
             return false;
-        cv::solvePnPRansac ( pts3d, pts2d, K, Mat(), rvec, tvec, false, 100, 3.0, 0.99, inliers );
+        cv::solvePnPRansac ( pts3d, pts2d, K, Mat(), rvec, tvec, false, 100, 4.0, 0.99, inliers );
         num_inliers_ = inliers.rows;
         cv::Rodrigues(rvec, R);
         double pose[6] = { rvec.at<double>(0), rvec.at<double>(1), rvec.at<double>(2), tvec.at<double>(0), tvec.at<double>(1), tvec.at<double>(2)};
@@ -704,9 +707,10 @@ namespace StereoVO
             int index = inliers.at<int> ( i,0 );
             double pt3d_in[3] = {pts3d[index].x, pts3d[index].y, pts3d[index].z};
             ceres::CostFunction* cost_function = MinReprojectionError::Create( pts3d[index], pts2d[index], K );
-            ceres::LossFunction* loss_function = new ceres::CauchyLoss(1.5);
+            ceres::LossFunction* loss_function = nullptr;//new ceres::CauchyLoss(1.5);
             problem.AddResidualBlock(cost_function, loss_function, pose);
         }
+
 //        for(int i=0; i<inliers.rows; i++ )
 //        {
 //            int index = inliers.at<int> ( i,0 );
@@ -715,6 +719,7 @@ namespace StereoVO
 //            ceres::LossFunction* loss_function = new ceres::HuberLoss(1.0);
 //            problem.AddResidualBlock(cost_function, loss_function, pose);
 //        }
+
         ceres::Solver::Options options;
         options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
         options.minimizer_progress_to_stdout = true;
@@ -866,6 +871,7 @@ namespace StereoVO
             if ( iter->second->good_ == false )
             {
                 // TODO try triangulate this map point
+//                map_->map_points_
                 iter = map_->map_points_.erase(iter);
                 continue;
             }
@@ -874,7 +880,7 @@ namespace StereoVO
 
         if ( match_2dkp_index_.size() < 1000 )
             addMapPoints();
-        if ( map_->map_points_.size() > 5000 )
+        if ( map_->map_points_.size() > 3000 )
         {
             // TODO map is too large, remove some one
             map_point_erase_ratio_ += 0.05;
