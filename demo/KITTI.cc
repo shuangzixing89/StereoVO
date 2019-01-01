@@ -8,6 +8,7 @@
 #include <opencv2/highgui/highgui.hpp>
 //#include <opencv2/viz.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/calib3d/calib3d.hpp>
 #include <chrono>
 
 //#include <pangolin/pangolin.h>
@@ -21,45 +22,24 @@
 #include "map.hpp"
 #include "mappoint.hpp"
 
-const string PathToSequence = "/Users/lixin/Documents/KITTI/data_odometry/dataset/sequences/12";//07 14  04 06
+const string PathToSequence = "/Users/lixin/Documents/KITTI/data_odometry/dataset/sequences/06";//07 14  04 06
 const string ParameterFile = "/Users/lixin/Documents/KITTI/KITTI00-02.yaml";
-const string GroundtruthFile = "/Users/lixin/Documents/KITTI/data_odometry/dataset/poses/07.txt";
+const string GroundtruthFile = "/Users/lixin/Documents/KITTI/data_odometry/dataset/poses/06.txt";
 
 void LoadImages(const string &strPathToSequence, vector<string> &vstrImageLeft,
                 vector<string> &vstrImageRight, vector<double> &vTimestamps);
+void LoadTracks(const string &GroundtruthFile, vector<vector<double>> &truths, vector<vector<double>> &truths_R);
 void DrawTrajectory(vector<vector<double>>  map_points);
 
 // TODO add keyframe.cc and add a local BA
 // TODO feature point should be
 int main(int argc, char **argv) {
-    bool view_t = false;
-    vector<vector<double>> truths;
+    bool view_t = true;
+    vector<vector<double>> truths, truths_R;
     if (view_t)
     {
-        ifstream fTruth(GroundtruthFile.c_str());
-        if (!fTruth)
-        {
-            std::cout << "can not open GroudtruthFile" << endl;
-            return -1;
-        }
-        double t;
-        while (!fTruth.eof())
-        {
-            double t[12];
-            for (auto &d:t)
-            {
-                fTruth >> d;
-            }
-    //        fTruth >> t;
-            vector<double> ts;
-            ts.push_back(t[3]);
-            ts.push_back(t[7]);
-            ts.push_back(t[11]);
-            truths.push_back(ts);
-        }
+        LoadTracks(GroundtruthFile, truths, truths_R);
     }
-
-
 
     // Retrieve paths to images
     vector<string> vstrImageLeft;
@@ -91,7 +71,7 @@ int main(int argc, char **argv) {
     Mat imLeft, imRight;
 
     //error
-    double e = 0;
+    double e_ATE = 0,e_RMSE = 0;
     int ei = 0;
 
     int begin = 0;
@@ -165,12 +145,23 @@ int main(int argc, char **argv) {
             int x_t = (int)(/*truths[begin][0] - */truths[ni][0]) + 300,
                     y_t = (int)-(/*truths[begin][2] - */truths[ni][2]) + 700;
             cv::circle(traj, cv::Point(x_t,y_t), 1, CV_RGB(255,255,255), 2 );
-            sprintf(text_t, "Coordinat_t: x = %6.2fm y = %6.2fm z = %6.2fm", truths[ni][0], truths[ni][1],
-                    truths[ni][2]);
+            sprintf(text_t, "Coordinat_t: x = %6.2fm y = %6.2fm z = %6.2fm", truths[ni][0], truths[ni][1], truths[ni][2]);
             cv::putText(traj, text_t, cv::Point(10,70), 1, 1, cv::Scalar::all(255));
-            e += std::sqrt( (cam_t.x - truths[ni][0]) * (cam_t.x - truths[ni][0]) +
+            e_ATE += std::sqrt( (cam_t.x - truths[ni][0]) * (cam_t.x - truths[ni][0]) +
                             (cam_t.y - truths[ni][1]) * (cam_t.y - truths[ni][1]) +
                             (cam_t.z - truths[ni][2]) * (cam_t.z - truths[ni][2]));
+            Mat t = ( cv::Mat_<double> ( 3,1 ) <<-truths[ni][0],-truths[ni][1],-truths[ni][2]);
+            Mat R = ( cv::Mat_<double> ( 3,3 ) <<truths_R[ni][0],truths_R[ni][1],truths_R[ni][2],
+                    truths_R[ni][3],truths_R[ni][4],truths_R[ni][5],
+                    truths_R[ni][6],truths_R[ni][7],truths_R[ni][8]);
+            t = -R.inv()*t + R.inv()*t_c_w;
+            R = R.inv()*R_c_w;
+            Mat rvec;
+            cv::Rodrigues(R,rvec);
+            double e_r = cv::norm(rvec);
+            e_r += cv::norm(t);
+            e_RMSE += e_r;
+
             ei ++;
         }
         cv::putText(traj, text, cv::Point(10, 50), 1, 1, cv::Scalar::all(255));
@@ -196,9 +187,10 @@ int main(int argc, char **argv) {
     }
 
     if(view_t)
-    std::cout << "ATE:" << std::sqrt(e/(double)ei) << std::endl;
-    // 04 ATE:2.34239
-    // 07 ATE:2.59293
+    std::cout << "ATE:" << std::sqrt(e_ATE/(double)ei) << std::endl;
+    std::cout << "RMSE:" << std::sqrt(e_RMSE/(double)ei) << std::endl;
+    // 04 ATE:2.34239   RMSE:19.5853
+    // 07 ATE:2.17038   RMSE:10.2887
     return 0;
 }
 
@@ -292,3 +284,39 @@ void DrawTrajectory(vector<vector<double>> map_points)
         usleep(3500);   // sleep 5 ms
     }
 }*/
+
+void LoadTracks(const string &GroundtruthFile, vector<vector<double>> &truths, vector<vector<double>> &truths_R)
+{
+    ifstream fTruth(GroundtruthFile.c_str());
+    if (!fTruth)
+    {
+        std::cout << "can not open GroudtruthFile" << endl;
+//        return -1;
+    }
+    double t;
+    while (!fTruth.eof())
+    {
+        double t[12];
+        for (auto &d:t)
+        {
+            fTruth >> d;
+        }
+        //        fTruth >> t;
+        vector<double> ts;
+        vector<double> R;
+        ts.push_back(t[3]);
+        ts.push_back(t[7]);
+        ts.push_back(t[11]);
+        R.push_back(t[0]);
+        R.push_back(t[1]);
+        R.push_back(t[2]);
+        R.push_back(t[4]);
+        R.push_back(t[5]);
+        R.push_back(t[6]);
+        R.push_back(t[8]);
+        R.push_back(t[9]);
+        R.push_back(t[10]);
+        truths.push_back(ts);
+        truths_R.push_back(R);
+    }
+}
