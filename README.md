@@ -1,7 +1,7 @@
 # StereoVO
 This is an OpenCV 3.0 and Ceres(is optional) based implementation of a stereo visual odometry algorithm.
 
-[here is a blog post](http://lixin97.com/2018/12/23/%E2%80%9C%E7%AE%80%E5%8D%95%E7%9A%84%E5%8F%8C%E7%9B%AEVO%E2%80%9D/) 
+[here is a blog post](http://lixin97.com/2018/12/24/双目视觉里程计的实现/) 
 
 ![image](https://github.com/robotlee1997/StereoVO/blob/master/demo/demo.jpeg)
 
