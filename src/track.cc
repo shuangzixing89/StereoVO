@@ -121,7 +121,7 @@ namespace StereoVO
 //        cv::Ptr<cv::xfeatures2d::SURF> surf__ = cv::xfeatures2d::SURF::create();
 //        detector_ = cv::xfeatures2d::SURF::create();//cv::ORB::create(num_of_features_,scale_factor_, level_pyramid_);
 
-        descriptor_ = cv::ORB::create();
+        descriptor_ = cv::ORB::create(num_of_features_ * 4 ,scale_factor_, level_pyramid_);
         matcher_ = cv::DescriptorMatcher::create ( "BruteForce-Hamming" );
         Mat R = Mat::eye(3,3,CV_64F),t = Mat::zeros(3,1,CV_64F);
         cv::hconcat(R,t,T_c_w_estimated_);
@@ -693,7 +693,7 @@ namespace StereoVO
         Mat rvec, tvec, inliers, R;
         if(pts3d.size() < 10)
             return false;
-        cv::solvePnPRansac ( pts3d, pts2d, K, Mat(), rvec, tvec, false, 100, 4.0, 0.99, inliers );
+        cv::solvePnPRansac ( pts3d, pts2d, K, Mat(), rvec, tvec, false, 100, 5.0, 0.99, inliers );
         num_inliers_ = inliers.rows;
         cv::Rodrigues(rvec, R);
         double pose[6] = { rvec.at<double>(0), rvec.at<double>(1), rvec.at<double>(2), tvec.at<double>(0), tvec.at<double>(1), tvec.at<double>(2)};

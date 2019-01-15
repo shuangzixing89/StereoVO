@@ -23,7 +23,7 @@
 #include "mappoint.hpp"
 
 const string PathToSequence = "/Users/lixin/Documents/KITTI/data_odometry/dataset/sequences/06";//07 14  04 06
-const string ParameterFile = "/Users/lixin/Documents/KITTI/KITTI00-02.yaml";
+const string ParameterFile = "../config/KITTI00-02.yaml";
 const string GroundtruthFile = "/Users/lixin/Documents/KITTI/data_odometry/dataset/poses/06.txt";
 
 void LoadImages(const string &strPathToSequence, vector<string> &vstrImageLeft,
