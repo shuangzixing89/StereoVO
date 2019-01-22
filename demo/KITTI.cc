@@ -39,7 +39,7 @@ int main(int argc, char **argv) {
     GroundtruthFile.append( string(argv[1]) );
     GroundtruthFile.append( string(".txt") );
 
-    bool view_t = true;
+    bool view_t = (bool)std::atoi(argv[2]);
     vector<vector<double>> truths, truths_R;
     if (view_t)
     {
@@ -69,7 +69,7 @@ int main(int argc, char **argv) {
     cout << "Start processing sequence ..." << endl;
     cout << "Images in the sequence: " << nImages << endl << endl;
 
-    char text[100],text_t[100];
+    char text[100],text_t[100],text_times[100];
     Mat traj = Mat::zeros(1000, 600, CV_8UC3);
 
     // Main loop
@@ -144,14 +144,14 @@ int main(int argc, char **argv) {
         int x = (int)(cam_t.x) + 300,
                 y = (int)(-cam_t.z) + 700;
         cv::circle(traj, cv::Point(x,y), 1, CV_RGB(255,0,0), 2 );
-        cv::rectangle(traj, cv::Point(10,0), cv::Point(600,70), CV_RGB(0,0,0), CV_FILLED);
+        cv::rectangle(traj, cv::Point(0,0), cv::Point(600,100), CV_RGB(0,0,0), CV_FILLED);
         sprintf(text, "Coordinates: x = %6.2fm y = %6.2fm z = %6.2fm",cam_t.x, cam_t.y, cam_t.z);
         if(view_t)
         {
             int x_t = (int)(/*truths[begin][0] - */truths[ni][0]) + 300,
                     y_t = (int)-(/*truths[begin][2] - */truths[ni][2]) + 700;
             cv::circle(traj, cv::Point(x_t,y_t), 1, CV_RGB(255,255,255), 2 );
-            sprintf(text_t, "Coordinat_t: x = %6.2fm y = %6.2fm z = %6.2fm cost: %.2fms", truths[ni][0], truths[ni][1], truths[ni][2], time.toc());
+            sprintf(text_t, "Coordinat_t: x = %6.2fm y = %6.2fm z = %6.2fm", truths[ni][0], truths[ni][1], truths[ni][2]);
             cv::putText(traj, text_t, cv::Point(10,70), 1, 1, cv::Scalar::all(255));
             e_ATE += std::sqrt( (cam_t.x - truths[ni][0]) * (cam_t.x - truths[ni][0]) +
                             (cam_t.y - truths[ni][1]) * (cam_t.y - truths[ni][1]) +
@@ -167,10 +167,11 @@ int main(int argc, char **argv) {
             double e_r = cv::norm(rvec);
             e_r += cv::norm(t);
             e_RMSE += e_r;
-
             ei ++;
         }
         cv::putText(traj, text, cv::Point(10, 50), 1, 1, cv::Scalar::all(255));
+        sprintf(text_times, "PnP times:%7.2fms  Mappoints: %4ld  all cost: %5.2fms", track->PnP_times_, track->map_->map_points_.size(), time.toc());
+        cv::putText(traj, text_times, cv::Point(10,90), 1, 1, cv::Scalar::all(255));
         cv::imshow("traj", traj );
 
 

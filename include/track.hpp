@@ -61,6 +61,9 @@ namespace StereoVO
         double  map_point_erase_ratio_; // remove map point ratio
 
 
+        // cost times
+        double PnP_times_;
+
         // Corresponding stereo coordinate and depth for each keypoint.
         // "Monocular" keypoints have a negative value.
         std::vector<float> mvuRight;

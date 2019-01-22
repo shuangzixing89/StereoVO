@@ -734,7 +734,8 @@ namespace StereoVO
         cv::hconcat(R,tvec,T_c_w_estimated_);
 //        cout<<"T_c_w_estimated_: "<<endl<<T_c_w_estimated_<<endl;
 
-        std::cout << "PnP cost times: "<< t.toc() << " ms\n";
+        PnP_times_ = t.toc();
+        std::cout << "PnP cost times: "<< PnP_times_ << " ms\n";
         return true;
         /*// using bundle adjustment to optimize the pose
         typedef g2o::BlockSolver<g2o::BlockSolverTraits<6,2>> Block;
@@ -875,9 +876,9 @@ namespace StereoVO
             iter++;
         }
 
-        if ( match_2dkp_index_.size() < 2000 )
+        if ( match_2dkp_index_.size() < 1000 )
             addMapPoints();
-        if ( map_->map_points_.size() > 3000 )
+        if ( map_->map_points_.size() > 1500 )
         {
             // TODO map is too large, remove some one
             map_point_erase_ratio_ += 0.5;
