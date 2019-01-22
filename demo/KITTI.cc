@@ -13,6 +13,7 @@
 
 //#include <pangolin/pangolin.h>
 
+#include "tic_toc.hpp"
 #include "config.hpp"
 #include "camera.hpp"
 #include "frame.hpp"
@@ -22,9 +23,9 @@
 #include "map.hpp"
 #include "mappoint.hpp"
 
-const string PathToSequence = "/Users/lixin/Documents/KITTI/data_odometry/dataset/sequences/06";//07 14  04 06
+string PathToSequence = "/Users/lixin/Documents/KITTI/data_odometry/dataset/sequences/";//07 14  04 06
 const string ParameterFile = "../config/KITTI00-02.yaml";
-const string GroundtruthFile = "/Users/lixin/Documents/KITTI/data_odometry/dataset/poses/06.txt";
+string GroundtruthFile = "/Users/lixin/Documents/KITTI/data_odometry/dataset/poses/";
 
 void LoadImages(const string &strPathToSequence, vector<string> &vstrImageLeft,
                 vector<string> &vstrImageRight, vector<double> &vTimestamps);
@@ -34,6 +35,10 @@ void DrawTrajectory(vector<vector<double>>  map_points);
 // TODO add keyframe.cc and add a local BA
 // TODO feature point should be
 int main(int argc, char **argv) {
+    PathToSequence.append( string(argv[1]) );
+    GroundtruthFile.append( string(argv[1]) );
+    GroundtruthFile.append( string(".txt") );
+
     bool view_t = true;
     vector<vector<double>> truths, truths_R;
     if (view_t)
@@ -78,6 +83,7 @@ int main(int argc, char **argv) {
 
     for(int ni=begin ; ni<nImages; ni++)
     {
+        TicToc time;
         // Read left and right images from file
         imLeft = cv::imread(vstrImageLeft[ni],CV_LOAD_IMAGE_UNCHANGED);
         imRight = cv::imread(vstrImageRight[ni],CV_LOAD_IMAGE_UNCHANGED);
@@ -138,14 +144,14 @@ int main(int argc, char **argv) {
         int x = (int)(cam_t.x) + 300,
                 y = (int)(-cam_t.z) + 700;
         cv::circle(traj, cv::Point(x,y), 1, CV_RGB(255,0,0), 2 );
-        cv::rectangle(traj, cv::Point(10,30), cv::Point(550,70), CV_RGB(0,0,0), CV_FILLED);
+        cv::rectangle(traj, cv::Point(10,0), cv::Point(600,70), CV_RGB(0,0,0), CV_FILLED);
         sprintf(text, "Coordinates: x = %6.2fm y = %6.2fm z = %6.2fm",cam_t.x, cam_t.y, cam_t.z);
         if(view_t)
         {
             int x_t = (int)(/*truths[begin][0] - */truths[ni][0]) + 300,
                     y_t = (int)-(/*truths[begin][2] - */truths[ni][2]) + 700;
             cv::circle(traj, cv::Point(x_t,y_t), 1, CV_RGB(255,255,255), 2 );
-            sprintf(text_t, "Coordinat_t: x = %6.2fm y = %6.2fm z = %6.2fm", truths[ni][0], truths[ni][1], truths[ni][2]);
+            sprintf(text_t, "Coordinat_t: x = %6.2fm y = %6.2fm z = %6.2fm cost: %.2fms", truths[ni][0], truths[ni][1], truths[ni][2], time.toc());
             cv::putText(traj, text_t, cv::Point(10,70), 1, 1, cv::Scalar::all(255));
             e_ATE += std::sqrt( (cam_t.x - truths[ni][0]) * (cam_t.x - truths[ni][0]) +
                             (cam_t.y - truths[ni][1]) * (cam_t.y - truths[ni][1]) +

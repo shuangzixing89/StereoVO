@@ -16,7 +16,9 @@ find_package(Ceres REQUIRED)
 #mynteye
 #find_package(mynteye REQUIRED)
 #set(__link_libs mynteye)
-#find_package(Pangolin REQUIRED))
+
+# Pangolin
+find_package(Pangolin REQUIRED)
 #
 ## OpenCV
 
@@ -24,7 +26,7 @@ include_directories(
         ${PROJECT_SOURCE_DIR}/include
         ${OpenCV_INCLUDE_DIRS}
         ${CERES_INCLUDE_DIRS}
-#        ${Pangolin_INCLUDE_DIRS}
+        ${Pangolin_INCLUDE_DIRS}
 )
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib)
 add_library(${PROJECT_NAME} SHARED
@@ -38,7 +40,7 @@ add_library(${PROJECT_NAME} SHARED
 target_link_libraries(${PROJECT_NAME}
         ${OpenCV_LIBS}
         ${CERES_LIBRARIES}
-#        ${Pangolin_LIBRARIES}
+        ${Pangolin_LIBRARIES}
         )
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)

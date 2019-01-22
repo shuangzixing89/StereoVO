@@ -9,10 +9,12 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/calib3d/calib3d.hpp>
 #include <algorithm>
+#include <tic_toc.hpp>
 #include <ceres/ceres.h>
 #include <ceres/rotation.h>
 //#include <boost/timer.hpp>
 
+TicToc t;
 
 namespace StereoVO
 {
@@ -110,7 +112,7 @@ namespace StereoVO
         scale_factor_       = Config::get<double> ( "scale_factor" );
         level_pyramid_      = Config::get<int> ( "level_pyramid" );
         match_ratio_        = Config::get<float> ( "match_ratio" );
-        max_num_lost_       = Config::get<float> ( "max_num_lost" );
+        max_num_lost_       = Config::get<int> ( "max_num_lost" );
         min_inliers_        = Config::get<int> ( "min_inliers" );
         key_frame_min_rot   = Config::get<double> ( "keyframe_rotation" );
         key_frame_min_trans = Config::get<double> ( "keyframe_translation" );
@@ -122,7 +124,7 @@ namespace StereoVO
 //        detector_ = cv::xfeatures2d::SURF::create();//cv::ORB::create(num_of_features_,scale_factor_, level_pyramid_);
 
         descriptor_ = cv::ORB::create(num_of_features_ * 4 ,scale_factor_, level_pyramid_);
-        matcher_ = cv::DescriptorMatcher::create ( "BruteForce-Hamming" );
+        matcher_ = cv::DescriptorMatcher::create ("BruteForce-Hamming");//("FlannBased");//;( "BruteForce-Hamming" );
         Mat R = Mat::eye(3,3,CV_64F),t = Mat::zeros(3,1,CV_64F);
         cv::hconcat(R,t,T_c_w_estimated_);
     }
@@ -165,11 +167,15 @@ namespace StereoVO
                     if ( checkEstimatedPose() == true ) // a good estimation
                     {
                         curr_->T_c_w_ = T_c_w_estimated_.clone();
+                        t.tic();
                         optimizeMap();
+                        std::cout << "optimizeMap cost time " << t.toc() << " ms\n";
                         num_lost_ = 0;
                         if ( checkKeyFrame() == true ) // is a key-frame
                         {
+                            t.tic();
                             addKeyFrame();
+                            std::cout << "addKeyFrame cost time " << t.toc() << " ms\n";
                         }
                         else
                         {
@@ -211,6 +217,7 @@ namespace StereoVO
 
     void Track::extractKeyPoints()
     {
+        t.tic();
         keypoints_curr_right_.clear();
         keypoints_curr_left_.clear();
 
@@ -288,13 +295,17 @@ namespace StereoVO
 //            keypoints_curr_right_.push_back(i);
 //        }
 
+        t.toc();
         std::cout << "ORB num :" << keypoints_curr_left_.size()  << std::endl;
+        std::cout << "extrack cost time " << t.toc() << " ms\n";
     }
 
     void Track::computeDescriptors()
     {
+        t.tic();
         descriptor_->compute ( curr_->left_, keypoints_curr_left_, descriptors_curr_left_ );
         descriptor_->compute ( curr_->right_, keypoints_curr_right_, descriptors_curr_right_ );
+        std::cout << "descript cost time " << t.toc() << " ms\n";
     }
 
     // TODO not very good
@@ -440,6 +451,7 @@ namespace StereoVO
 
     void Track::matchCurr()
     {
+        t.tic();
         int N = keypoints_curr_left_.size();
         mvuRight = vector<float>(N,-1.0f);
         mvDepth = vector<float>(N,-1.0f);
@@ -501,8 +513,9 @@ namespace StereoVO
 //                mvDepth[vDistIdx[i].second]=-1;
 //            }
 //        }
-        std::cout << "strero matches: " << matches_curr_good_.size() << std::endl;
+        std::cout << "stereo matches: " << matches_curr_good_.size() << std::endl;
 
+        std::cout << "match stereo cost times: "<< t.toc() << " ms\n";
 
 
         //绘制匹配结果
@@ -515,6 +528,7 @@ namespace StereoVO
 
     void Track::featureMatching()
     {
+        t.tic();
         vector< vector<cv::DMatch>> matches;
         // select the candidates in map
         Mat desp_map;
@@ -587,34 +601,14 @@ namespace StereoVO
         }
 
 
-        Mat match3d;
-        drawMatches ( ref_->left_, keypoints_ref_left_, curr_->left_ ,keypoints_curr_left_, good_matchs, match3d );
-        cv::resize(match3d, match3d, cv::Size(1000,400));
-        cv::imshow ( "match3d", match3d );
-
-
-
-//        matcher_flann_.match ( desp_map, descriptors_curr_left_, matches );
-//        // select the best matches
-//        float min_dis = std::min_element (
-//                matches.begin(), matches.end(),
-//                [] ( const cv::DMatch& m1, const cv::DMatch& m2 )
-//                {
-//                    return m1.distance < m2.distance;
-//                } )->distance;
-
-//        match_3dpts_.clear();
-//        match_2dkp_index_.clear();
-//        for ( cv::DMatch& m : matches )
-//        {
-//            if ( m.distance < max<float> ( min_dis*match_ratio_, 50.0 ) )
-//            {
-//                match_3dpts_.push_back( candidate[m.queryIdx] );
-//                match_2dkp_index_.push_back( m.trainIdx );
-//            }
-//        }
-        cout<<"3D pointd: "<<desp_map.size()<<"\n2D points: "<<descriptors_curr_left_.size()<<endl;
-        cout<<"3D-2D matches: "<<match_3dpts_.size() <<endl;
+//        Mat match3d;
+//        drawMatches ( ref_->left_, keypoints_ref_left_, curr_->left_ ,keypoints_curr_left_, good_matchs, match3d );
+//        cv::resize(match3d, match3d, cv::Size(1000,400));
+//        cv::imshow ( "match3d", match3d );
+//
+//        cout<<"3D pointd: "<<desp_map.size()<<"\n2D points: "<<descriptors_curr_left_.size()<<endl;
+//        cout<<"3D-2D matches: "<<match_3dpts_.size() <<endl;
+        std::cout << "3D-2D match cost time " << t.toc() << " ms\n";
     }
 
 
@@ -671,6 +665,7 @@ namespace StereoVO
 
     bool Track::poseEstimationPnP()
     {
+        t.tic();
         // construct the 3d 2d observations
         vector<cv::Point3f> pts3d;
         vector<cv::Point2f> pts2d, pts2d_ref;
@@ -686,7 +681,7 @@ namespace StereoVO
         }
 
         Mat K = ( cv::Mat_<double> ( 3,3 ) <<
-                                           ref_->camera_->fx_, 0, ref_->camera_->cx_,
+                ref_->camera_->fx_, 0, ref_->camera_->cx_,
                 0, ref_->camera_->fy_, ref_->camera_->cy_,
                 0,0,1
         );
@@ -705,7 +700,8 @@ namespace StereoVO
         for(int i=0; i<inliers.rows; i++ )
         {
             int index = inliers.at<int> ( i,0 );
-            double pt3d_in[3] = {pts3d[index].x, pts3d[index].y, pts3d[index].z};
+//            double pt3d_in[3] = {pts3d[index].x, pts3d[index].y, pts3d[index].z};
+            match_3dpts_[index]->matched_times_++;
             ceres::CostFunction* cost_function = MinReprojectionError::Create( pts3d[index], pts2d[index], K );
             ceres::LossFunction* loss_function = nullptr;//new ceres::CauchyLoss(1.5);
             problem.AddResidualBlock(cost_function, loss_function, pose);
@@ -736,8 +732,9 @@ namespace StereoVO
 
         cv::Rodrigues(rvec, R);
         cv::hconcat(R,tvec,T_c_w_estimated_);
-        cout<<"T_c_w_estimated_: "<<endl<<T_c_w_estimated_<<endl;
+//        cout<<"T_c_w_estimated_: "<<endl<<T_c_w_estimated_<<endl;
 
+        std::cout << "PnP cost times: "<< t.toc() << " ms\n";
         return true;
         /*// using bundle adjustment to optimize the pose
         typedef g2o::BlockSolver<g2o::BlockSolverTraits<6,2>> Block;
@@ -802,7 +799,7 @@ namespace StereoVO
 
         double d_n = my_nom(d);
 
-        if ( d_n > 5.0 )
+        if ( d_n > 10.0 )
         {
             cout<<"reject because motion is too large: "<<d_n <<endl;
             return false;
@@ -878,15 +875,15 @@ namespace StereoVO
             iter++;
         }
 
-        if ( match_2dkp_index_.size() < 1000 )
+        if ( match_2dkp_index_.size() < 2000 )
             addMapPoints();
         if ( map_->map_points_.size() > 3000 )
         {
             // TODO map is too large, remove some one
-            map_point_erase_ratio_ += 0.05;
+            map_point_erase_ratio_ += 0.5;
         }
         else
-            map_point_erase_ratio_ = 0.1;
+            map_point_erase_ratio_ = 0.5;
         cout<<"map points: "<<map_->map_points_.size()<<endl;
     }
 
