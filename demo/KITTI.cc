@@ -53,7 +53,7 @@ int main(int argc, char **argv) {
     LoadImages(PathToSequence, vstrImageLeft, vstrImageRight, vTimestamps);
 
 
-    const int nImages = vstrImageLeft.size();
+    const int nImages = static_cast<const int>(vstrImageLeft.size());
 
     //// Create VO system.
     StereoVO::Config::setParameterFile(ParameterFile);
@@ -63,7 +63,7 @@ int main(int argc, char **argv) {
 
     // Vector for tracking time statistics
     vector<float> vTimesTrack;
-    vTimesTrack.resize(nImages);
+    vTimesTrack.resize((unsigned long) nImages);
 
     cout << endl << "-------" << endl;
     cout << "Start processing sequence ..." << endl;
@@ -72,15 +72,13 @@ int main(int argc, char **argv) {
     char text[100],text_t[100],text_times[100];
     Mat traj = Mat::zeros(1000, 600, CV_8UC3);
 
-    // Main loop
     Mat imLeft, imRight;
-
     //error
     double e_ATE = 0,e_RMSE = 0;
     int ei = 0;
-
     int begin = 0;
 
+    // Main loop
     for(int ni=begin ; ni<nImages; ni++)
     {
         TicToc time;
@@ -112,30 +110,11 @@ int main(int argc, char **argv) {
 
 
 
-//        std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
-
-//         Pass the images to the SLAM system
-//        SLAM.TrackStereo(imLeft,imRight,tframe);
         track->addFrame(pFrame);
         cv::imshow("Image", imLeft);
 //        cv::waitKey( 30 );
         if(cv::waitKey( 1 ) == 27) break;
 
-//        std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
-
-//        double ttrack= std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
-
-//        vTimesTrack[ni]=ttrack;
-
-        // Wait to load the next frame
-//        double T=0;
-//        if(ni<nImages-1)
-//            T = vTimestamps[ni+1]-tframe;
-//        else if(ni>0)
-//            T = tframe-vTimestamps[ni-1];
-//
-//        if(ttrack<T)
-//            usleep((T-ttrack)*1e6);
         Mat R_c_w = track->curr_->T_c_w_.colRange(0,3).rowRange(0,3),
                 t_c_w = track->curr_->T_c_w_.colRange(3,4).rowRange(0,3);
         Mat ret = -R_c_w.inv()*t_c_w;
@@ -156,14 +135,14 @@ int main(int argc, char **argv) {
             e_ATE += std::sqrt( (cam_t.x - truths[ni][0]) * (cam_t.x - truths[ni][0]) +
                             (cam_t.y - truths[ni][1]) * (cam_t.y - truths[ni][1]) +
                             (cam_t.z - truths[ni][2]) * (cam_t.z - truths[ni][2]));
-            Mat t = ( cv::Mat_<double> ( 3,1 ) <<-truths[ni][0],-truths[ni][1],-truths[ni][2]);
-            Mat R = ( cv::Mat_<double> ( 3,3 ) <<truths_R[ni][0],truths_R[ni][1],truths_R[ni][2],
+            Mat t_e = ( cv::Mat_<double> ( 3,1 ) <<-truths[ni][0],-truths[ni][1],-truths[ni][2]);
+            Mat R_e = ( cv::Mat_<double> ( 3,3 ) <<truths_R[ni][0],truths_R[ni][1],truths_R[ni][2],
                     truths_R[ni][3],truths_R[ni][4],truths_R[ni][5],
                     truths_R[ni][6],truths_R[ni][7],truths_R[ni][8]);
-            t = -R.inv()*t + R.inv()*t_c_w;
-            R = R.inv()*R_c_w;
+            t_e = -R_e.inv()*t_e + R_e.inv()*t_c_w;
+            R_e = R_e.inv()*R_c_w;
             Mat rvec;
-            cv::Rodrigues(R,rvec);
+            cv::Rodrigues(R_e,rvec);
             double e_r = cv::norm(rvec);
             e_r += cv::norm(t);
             e_RMSE += e_r;
@@ -229,9 +208,9 @@ void LoadImages(const string &strPathToSequence, vector<string> &vstrImageLeft,
     string strPrefixLeft = strPathToSequence + "/image_0/";
     string strPrefixRight = strPathToSequence + "/image_1/";
 
-    const int nTimes = vTimestamps.size();
-    vstrImageLeft.resize(nTimes);
-    vstrImageRight.resize(nTimes);
+    const int nTimes = static_cast<const int>(vTimestamps.size());
+    vstrImageLeft.resize((unsigned long) nTimes);
+    vstrImageRight.resize((unsigned long) nTimes);
 
     for(int i=0; i<nTimes; i++)
     {
@@ -298,9 +277,8 @@ void LoadTracks(const string &GroundtruthFile, vector<vector<double>> &truths, v
     if (!fTruth)
     {
         std::cout << "can not open GroudtruthFile" << endl;
-//        return -1;
+        return ;
     }
-    double t;
     while (!fTruth.eof())
     {
         double t[12];

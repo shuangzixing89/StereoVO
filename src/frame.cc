@@ -1,3 +1,5 @@
+#include <memory>
+
 //
 // Created by lixin on 18-12-19.
 //
@@ -7,26 +9,24 @@
 namespace StereoVO
 {
     Frame::Frame()
-            : id_(-1), time_stamp_(-1), camera_(nullptr), is_key_frame_(false)
+            : id_(static_cast<unsigned long>(-1)), time_stamp_(-1), camera_(nullptr), is_key_frame_(false)
     {
 
     }
 
     Frame::Frame ( long id, double time_stamp, Mat T_c_w, Camera::Ptr camera, Mat left, Mat right )
-            : id_(id), time_stamp_(time_stamp), T_c_w_(T_c_w), camera_(camera), left_(left), right_(right), is_key_frame_(false)
+            : id_(static_cast<unsigned long>(id)), time_stamp_(time_stamp), T_c_w_(T_c_w), camera_(camera), left_(left), right_(right), is_key_frame_(false)
     {
 
     }
 
     Frame::~Frame()
-    {
-
-    }
+    = default;
 
     Frame::Ptr Frame::createFrame()
     {
         static long factory_id = 0;
-        return Frame::Ptr( new Frame(factory_id++) );
+        return std::make_shared<Frame>(factory_id++);
     }
 
     double Frame::findDepth ( const cv::KeyPoint& kp )

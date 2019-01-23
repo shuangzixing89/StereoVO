@@ -130,9 +130,7 @@ namespace StereoVO
     }
 
     Track::~Track()
-    {
-
-    }
+    = default;
 
     bool Track::addFrame ( Frame::Ptr frame )
     {
@@ -162,16 +160,16 @@ namespace StereoVO
                 matchCurr();
 //                ComputeStereoMatches();
                 featureMatching();
-                if( poseEstimationPnP() == true)
+                if(poseEstimationPnP())
                 {
-                    if ( checkEstimatedPose() == true ) // a good estimation
+                    if (checkEstimatedPose()) // a good estimation
                     {
                         curr_->T_c_w_ = T_c_w_estimated_.clone();
                         t.tic();
                         optimizeMap();
                         std::cout << "optimizeMap cost time " << t.toc() << " ms\n";
                         num_lost_ = 0;
-                        if ( checkKeyFrame() == true ) // is a key-frame
+                        if (checkKeyFrame()) // is a key-frame
                         {
                             t.tic();
                             addKeyFrame();
@@ -311,21 +309,21 @@ namespace StereoVO
     // TODO not very good
     void Track::ComputeStereoMatches()
     {
-        int N = keypoints_curr_left_.size();
-        mvuRight = vector<float>(N,-1.0f);
-        mvDepth = vector<float>(N,-1.0f);
+        int N = static_cast<int>(keypoints_curr_left_.size());
+        mvuRight = vector<float>(static_cast<unsigned long>(N), -1.0f);
+        mvDepth = vector<float>(static_cast<unsigned long>(N), -1.0f);
 
         const int thOrbDist = 75;
 
         const int nRows = curr_->left_.rows;
 
         //Assign keypoints to row table
-        vector<vector<size_t> > vRowIndices(nRows,vector<size_t>());
+        vector<vector<size_t> > vRowIndices((unsigned long) nRows, vector<size_t>());
 
         for(int i=0; i<nRows; i++)
             vRowIndices[i].reserve(200);
 
-        const int Nr = keypoints_curr_right_.size();
+        const int Nr = static_cast<const int>(keypoints_curr_right_.size());
 
         for(int iR=0; iR<Nr; iR++)
         {
@@ -404,11 +402,11 @@ namespace StereoVO
                 if(disparity<=0)
                 {
                     disparity=0.01;
-                    bestIdxR = uL-0.01;
+                    bestIdxR = static_cast<size_t>(uL - 0.01);
                 }
                 mvDepth[iL]=curr_->camera_->bf_/disparity;
                 mvuRight[iL] = bestIdxR;
-                vDistIdx.push_back(pair<int,int>(bestDist,iL));
+                vDistIdx.emplace_back(bestDist,iL);
             }
         }
 
@@ -417,7 +415,7 @@ namespace StereoVO
         const float thDist = median;
 
 //        int num = 0;
-        for(int i=vDistIdx.size()-1;i>=0;i--)
+        for(int i= static_cast<int>(vDistIdx.size() - 1); i >= 0; i--)
         {
             if(vDistIdx[i].first<thDist)
             {
@@ -436,7 +434,7 @@ namespace StereoVO
             {
                 cv::DMatch x;
                 x.queryIdx = i.second;
-                x.trainIdx = mvuRight[i.second];
+                x.trainIdx = static_cast<int>(mvuRight[i.second]);
                 matches_curr_good_.push_back(x);
             }
         }
@@ -452,16 +450,16 @@ namespace StereoVO
     void Track::matchCurr()
     {
         t.tic();
-        int N = keypoints_curr_left_.size();
-        mvuRight = vector<float>(N,-1.0f);
-        mvDepth = vector<float>(N,-1.0f);
+        int N = static_cast<int>(keypoints_curr_left_.size());
+        mvuRight = vector<float>(static_cast<unsigned long>(N), -1.0f);
+        mvDepth = vector<float>(static_cast<unsigned long>(N), -1.0f);
 
         matcher_->knnMatch(descriptors_curr_left_, descriptors_curr_right_, matches_curr_, 2);
 
 
 
         vector<pair<int, int> > vDistIdx;
-        vDistIdx.reserve(N);
+        vDistIdx.reserve(static_cast<unsigned long>(N));
         const float minZ = curr_->camera_->b_;
         const float minD = 2;
         const float maxD = curr_->camera_->bf_ / minZ;
@@ -483,11 +481,12 @@ namespace StereoVO
                     if(disparity<=0)
                     {
                         disparity=0.01;
-                        keypoints_curr_right_[ m[0].trainIdx ].pt.x = keypoints_curr_left_[ m[0].queryIdx ].pt.x-0.01;
+                        keypoints_curr_right_[ m[0].trainIdx ].pt.x = static_cast<float>(
+                                keypoints_curr_left_[ m[0].queryIdx ].pt.x - 0.01);
                     }
                     mvDepth[iL]=curr_->camera_->bf_/disparity;
                     mvuRight[iL] = keypoints_curr_right_[ m[0].trainIdx ].pt.x;
-                    vDistIdx.push_back(pair<int,int>(m[0].distance,iL));
+                    vDistIdx.emplace_back(m[0].distance,iL);
                 }
 
                 matches_curr_good_.push_back(m[0]);
@@ -554,8 +553,8 @@ namespace StereoVO
         double x_e = 0,y_e = 0,e_i = 0;
         for ( auto& m:matches )
         {
-            if(m[0].distance > max_dis )    max_dis = m[0].distance;
-            if(m[0].distance < min_dis )    min_dis = m[0].distance;
+            if(m[0].distance > max_dis )    max_dis = static_cast<int>(m[0].distance);
+            if(m[0].distance < min_dis )    min_dis = static_cast<int>(m[0].distance);
             double perfect = m[0].distance / m[1].distance;
             if(perfect < 0.7 )
             {
@@ -654,7 +653,7 @@ namespace StereoVO
 
         for(int i=0; i<8; i++, pa++, pb++)
         {
-            unsigned  int v = *pa ^ *pb;
+            unsigned  int v = static_cast<unsigned int>(*pa ^ *pb);
             v = v - ((v >> 1) & 0x55555555);
             v = (v & 0x33333333) + ((v >> 2) & 0x33333333);
             dist += (((v + (v >> 4)) & 0xF0F0F0F) * 0x1010101) >> 24;
@@ -675,7 +674,7 @@ namespace StereoVO
             pts2d.push_back ( keypoints_curr_left_[index].pt );
 //            pts2d_ref.push_back (keypoints_ref_left_[index].pt);
         }
-        for ( MapPoint::Ptr pt:match_3dpts_ )
+        for (const MapPoint::Ptr &pt:match_3dpts_ )
         {
             pts3d.push_back( pt->pos_ /*getPositionCV()*/ );
         }
@@ -825,9 +824,7 @@ namespace StereoVO
         cv::vconcat(r_r_c, t_r_c, d);
 
 
-        if ( cv::norm(r_r_c) >key_frame_min_rot || cv::norm(t_r_c) >key_frame_min_trans )
-            return true;
-        return false;
+        return cv::norm(r_r_c) > key_frame_min_rot || cv::norm(t_r_c) > key_frame_min_trans;
     }
 
     double Track::my_nom(Mat src)
@@ -866,7 +863,7 @@ namespace StereoVO
                 iter = map_->map_points_.erase(iter);
                 continue;
             }
-            if ( iter->second->good_ == false )
+            if (!iter->second->good_)
             {
                 // TODO try triangulate this map point
 //                map_->map_points_
